@@ -1,9 +1,11 @@
-import { ColorPaletteGenerator } from '../components/ColorPaletteGenerator'
+'use client';
+
+import { ColorPaletteGenerator } from '@/components/ColorPaletteGenerator';
 
 export default function Home() {
   return (
-    <main className="min-h-screen p-8">
+    <main>
       <ColorPaletteGenerator />
     </main>
-  )
+  );
 } 
