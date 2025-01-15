@@ -424,6 +424,29 @@ const OwnershipCalculator = () => {
                 />
               </div>
             </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Vesting Schedule</h3>
+              <div>
+                <Label>Schedule Type</Label>
+                <Select 
+                  options={[
+                    { value: '1_4', label: '1 Year Cliff, 4 Year Vest (Standard)' },
+                    { value: '1_3', label: '1 Year Cliff, 3 Year Vest' },
+                    { value: 'immediate', label: 'Immediate Vesting' }
+                  ]}
+                  value={vestingSchedule}
+                  onChange={(value) => setVestingSchedule(value as VestingSchedule)}
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {vestingSchedule === 'immediate' ? (
+                  'All shares vest immediately with no restrictions'
+                ) : (
+                  `${vestingSchedules[vestingSchedule].cliff} year cliff, fully vested after ${vestingSchedules[vestingSchedule].total} years`
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
