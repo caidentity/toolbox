@@ -1,0 +1,105 @@
+.custom-slider {
+    position: relative;
+    width: 100%;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    touch-action: none;
+    user-select: none;
+  
+    &--disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+  
+      .custom-slider__track,
+      .custom-slider__thumb {
+        pointer-events: none;
+      }
+    }
+  
+    &__track {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      background-color: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+  
+      &:hover {
+        background-color: #cbd5e1;
+      }
+    }
+  
+    &__range {
+      position: absolute;
+      height: 100%;
+      background-color: #3b82f6;
+      transition: width 0.1s ease-out;
+    }
+  
+    &__thumb {
+      position: absolute;
+      top: 50%;
+      width: 20px;
+      height: 20px;
+      background-color: #ffffff;
+      border: 2px solid #3b82f6;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      cursor: grab;
+      transition: all 0.1s ease-out;
+      
+      // Custom shadow with slight spread
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+      &:hover {
+        transform: translate(-50%, -50%) scale(1.1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+  
+      &--active {
+        cursor: grabbing;
+        transform: translate(-50%, -50%) scale(1.15);
+        box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        border-color: #2563eb;
+      }
+  
+      // Focus styles
+      &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+      }
+    }
+  
+    // Animation for value changes
+    @keyframes pulse {
+      0% {
+        transform: translate(-50%, -50%) scale(1);
+      }
+      50% {
+        transform: translate(-50%, -50%) scale(1.2);
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+  
+    // Touch device optimizations
+    @media (hover: none) {
+      &__thumb {
+        width: 24px;
+        height: 24px;
+  
+        &:hover {
+          transform: translate(-50%, -50%);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+      }
+  
+      &__track {
+        height: 10px;
+      }
+    }
+  }
