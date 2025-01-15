@@ -98,6 +98,28 @@ type DilutionData = {
   value: number;
 };
 
+// Add at the top with other type definitions
+type VestingSchedule = '1_4' | '1_3' | 'immediate';
+
+const vestingSchedules = {
+  '1_4': { name: '1 Year Cliff, 4 Year Vest', cliff: 1, total: 4 },
+  '1_3': { name: '1 Year Cliff, 3 Year Vest', cliff: 1, total: 3 },
+  'immediate': { name: 'Immediate Vesting', cliff: 0, total: 0 }
+} as const;
+
+// Add these types near the top with other type definitions
+type VestingYear = {
+  year: number;
+  shares: number;
+  valueAtExit: number;
+  percentVested: number;
+  cumulative: {
+    shares: number;
+    valueAtExit: number;
+    percentVested: number;
+  };
+};
+
 const OwnershipCalculator = () => {
   // Initial ownership inputs with proper typing
   const [ownershipType, setOwnershipType] = useState<'percentage' | 'shares'>('percentage');
@@ -188,6 +210,8 @@ const OwnershipCalculator = () => {
   const results = {
     initialOwnership: ownershipType === 'percentage' ? ownershipPercentage : calculatePercentage(),
     finalOwnership: calculateRoundDilution(),
+    initialShares: ownershipType === 'shares' ? sharesOwned : Math.round((ownershipPercentage / 100) * totalShares),
+    finalShares: Math.round((calculateRoundDilution() / 100) * totalShares),
     currentValue: ((ownershipType === 'percentage' ? ownershipPercentage : calculatePercentage()) / 100) * exitValue,
     dilutedValue: (calculateRoundDilution() / 100) * exitValue,
     dilutionBreakdown: calculateCumulativeDilution(
@@ -208,6 +232,66 @@ const OwnershipCalculator = () => {
       setTotalShares(newTotalShares);
       setSharesOwned(newSharesOwned);
     }
+  };
+
+  // Add state for vesting schedule
+  const [vestingSchedule, setVestingSchedule] = useState<VestingSchedule>('1_4');
+
+  // Add this function before the return statement
+  const calculateYearlyVesting = (): VestingYear[] => {
+    const totalShares = results.finalShares;
+    const schedule = vestingSchedules[vestingSchedule];
+    const yearlyBreakdown: VestingYear[] = [];
+
+    let cumulativeShares = 0;
+    
+    // Handle immediate vesting
+    if (schedule.total === 0) {
+      return [{
+        year: 0,
+        shares: totalShares,
+        valueAtExit: results.dilutedValue,
+        percentVested: 100,
+        cumulative: {
+          shares: totalShares,
+          valueAtExit: results.dilutedValue,
+          percentVested: 100
+        }
+      }];
+    }
+
+    // Calculate monthly vesting amount
+    const monthlyShares = totalShares / (schedule.total * 12);
+
+    // Calculate for each year
+    for (let year = 1; year <= schedule.total; year++) {
+      let yearShares = 0;
+
+      // Cliff year
+      if (year === schedule.cliff) {
+        yearShares = monthlyShares * 12 * schedule.cliff;
+      } 
+      // Regular vesting year
+      else if (year > schedule.cliff) {
+        yearShares = monthlyShares * 12;
+      }
+
+      cumulativeShares += yearShares;
+      
+      yearlyBreakdown.push({
+        year,
+        shares: yearShares,
+        valueAtExit: (yearShares / totalShares) * results.dilutedValue,
+        percentVested: (yearShares / totalShares) * 100,
+        cumulative: {
+          shares: cumulativeShares,
+          valueAtExit: (cumulativeShares / totalShares) * results.dilutedValue,
+          percentVested: (cumulativeShares / totalShares) * 100
+        }
+      });
+    }
+
+    return yearlyBreakdown;
   };
 
   return (
@@ -382,6 +466,66 @@ const OwnershipCalculator = () => {
               </div>
 
               {/* Vesting schedule section */}
+              <div className="space-y-2">
+                <h4 className="font-medium">Vesting Schedule ({vestingSchedules[vestingSchedule].name})</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[600px]">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Year</th>
+                        <th className="text-right p-2">Shares Vesting</th>
+                        <th className="text-right p-2">Value at Exit</th>
+                        <th className="text-right p-2">% Vested</th>
+                        <th className="text-right p-2">Cumulative Shares</th>
+                        <th className="text-right p-2">Cumulative Value</th>
+                        <th className="text-right p-2">Cumulative %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calculateYearlyVesting().map((year) => (
+                        <tr key={year.year} className="border-b">
+                          <td className="p-2">
+                            {year.year === 0 ? 'Immediate' : `Year ${year.year}`}
+                          </td>
+                          <td className="text-right p-2">
+                            {year.shares.toLocaleString()}
+                          </td>
+                          <td className="text-right p-2">
+                            {formatValue(year.valueAtExit)}
+                          </td>
+                          <td className="text-right p-2">
+                            {year.percentVested.toFixed(1)}%
+                          </td>
+                          <td className="text-right p-2">
+                            {year.cumulative.shares.toLocaleString()}
+                          </td>
+                          <td className="text-right p-2">
+                            {formatValue(year.cumulative.valueAtExit)}
+                          </td>
+                          <td className="text-right p-2">
+                            {year.cumulative.percentVested.toFixed(1)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t-2 font-medium">
+                      <tr>
+                        <td className="p-2">Total</td>
+                        <td className="text-right p-2">
+                          {results.finalShares.toLocaleString()}
+                        </td>
+                        <td className="text-right p-2">
+                          {formatValue(results.dilutedValue)}
+                        </td>
+                        <td className="text-right p-2">100%</td>
+                        <td className="text-right p-2">-</td>
+                        <td className="text-right p-2">-</td>
+                        <td className="text-right p-2">-</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex justify-between items-center">
@@ -389,7 +533,27 @@ const OwnershipCalculator = () => {
               * Calculations are estimates based on typical dilution patterns
             </p>
             <div className="flex gap-2">
-  
+              {/* <Button
+                onClick={() => {
+                  // Add to clipboard
+                  const data = calculateCumulativeDilution(results.initialOwnership);
+                  navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+                }}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <ClipboardIcon className="w-4 h-4" />
+                Copy Data
+              </Button>
+              <Button 
+                onClick={handleExport}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <DownloadIcon className="w-4 h-4" />
+                Export Results
+              </Button> */}
             </div>
           </CardFooter>
         </Card>
