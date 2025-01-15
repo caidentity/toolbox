@@ -112,6 +112,7 @@
   flex: 1;
   height: 4px;
   -webkit-appearance: none;
+  appearance: none;
   background: #d1d5db;
   border-radius: 2px;
 }

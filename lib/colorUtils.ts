@@ -1,4 +1,4 @@
-import { Point, BaseColor } from '../types'
+import type { Point, BaseColor } from '@/types'
 
 export const interpolateCurve = (t: number, points: Point[]): number => {
   const [p0, p1, p2, p3] = points
