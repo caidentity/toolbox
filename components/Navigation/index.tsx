@@ -13,6 +13,7 @@ type Tool = {
 const tools: Tool[] = [
   { name: 'Color Palette Generator', path: '/tools/color-palette' },
   { name: 'Tool Placeholder', path: '/tools/placeholder' },
+  { name: 'Finance', path: '/tools/finance-app' },
 ];
 
 export default function Navigation() {
