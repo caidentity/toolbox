@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import "./Tabs.module.scss";
+import styles from "./Tabs.module.scss";
 
 type TabsValue = 'percentage' | 'shares'
 
@@ -42,7 +42,7 @@ const Tabs = ({ defaultValue = 'percentage', value, onValueChange, children, cla
 
   return (
     <TabsContext.Provider value={{ value: value || selectedValue, onValueChange: handleValueChange }}>
-      <div className={cn('tabs', className)} {...props}>
+      <div className={cn(styles.tabs, className)} {...props}>
         {children}
       </div>
     </TabsContext.Provider>
@@ -53,7 +53,7 @@ const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('tabs-list', className)}
+      className={cn(styles['tabs-list'], className)}
       role="tablist"
       {...props}
     >
@@ -75,8 +75,8 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
         role="tab"
         aria-selected={isActive}
         className={cn(
-          'tabs-trigger',
-          isActive && 'tabs-trigger--active',
+          styles['tabs-trigger'],
+          isActive && styles['tabs-trigger--active'],
           className
         )}
         onClick={() => onValueChange(value)}
@@ -98,7 +98,7 @@ const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(
       <div
         ref={ref}
         role="tabpanel"
-        className={cn('tabs-content', className)}
+        className={cn(styles['tabs-content'], className)}
         {...props}
       >
         {children}

@@ -2,126 +2,137 @@
 "use client"
 
 import * as React from "react"
-import * as SelectPrimitive from "@radix-ui/react-select"
-import { ChevronDown } from "lucide-react"
-import styles from './Select.module.scss';
-import { cn } from '@/lib/utils';
+import { ChevronDown, X } from "lucide-react"
+import styles from './Select.module.scss'
+import { cn } from '@/lib/utils'
 
-// Root component
-const Select = SelectPrimitive.Root
-
-// Trigger component
-const SelectTrigger = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn(styles['select-trigger'], className)}
-    {...props}
-  >
-    <span className={styles['select-value']}>{children}</span>
-    <ChevronDown className={styles['select-trigger__icon']} />
-  </SelectPrimitive.Trigger>
-))
-SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
-
-// Value component
-const SelectValue = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Value>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Value
-    ref={ref}
-    className={`select-value ${className || ''}`}
-    {...props}
-  >
-    {children}
-  </SelectPrimitive.Value>
-))
-SelectValue.displayName = SelectPrimitive.Value.displayName
-
-// Content component
-const SelectContent = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = "popper", ...props }, ref) => (
-  <SelectPrimitive.Portal>
-    <SelectPrimitive.Content
-      ref={ref}
-      className={cn(
-        styles['select-content'],
-        position === "popper" && styles['select-content--popper'],
-        className
-      )}
-      position={position}
-      {...props}
-    >
-      <SelectPrimitive.Viewport 
-        className={cn(
-          styles['select-viewport'],
-          position === "popper" && styles['select-viewport--popper']
-        )}
-      >
-        {children}
-      </SelectPrimitive.Viewport>
-    </SelectPrimitive.Content>
-  </SelectPrimitive.Portal>
-))
-SelectContent.displayName = SelectPrimitive.Content.displayName
-
-// Item component
-const SelectItem = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Item
-    ref={ref}
-    className={cn(styles['select-item'], className)}
-    {...props}
-  >
-    <span className={styles['select-item__indicator']}>
-      <SelectPrimitive.ItemIndicator>
-        <ChevronDown className={styles['select-item__icon']} />
-      </SelectPrimitive.ItemIndicator>
-    </span>
-    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-  </SelectPrimitive.Item>
-))
-SelectItem.displayName = SelectPrimitive.Item.displayName
-
-// Additional components that may be useful
-const SelectGroup = SelectPrimitive.Group
-const SelectLabel = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Label>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
->(({ className, ...props }, ref) => (
-  <SelectPrimitive.Label
-    ref={ref}
-    className={cn(styles['select-label'], className)}
-    {...props}
-  />
-))
-SelectLabel.displayName = SelectPrimitive.Label.displayName
-const SelectSeparator = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
->(({ className, ...props }, ref) => (
-  <SelectPrimitive.Separator
-    ref={ref}
-    className={cn(styles['select-separator'], className)}
-    {...props}
-  />
-))
-SelectSeparator.displayName = SelectPrimitive.Separator.displayName
-
-export {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
+interface SelectOption {
+  value: string
+  label: string
+  disabled?: boolean
 }
+
+interface SelectProps {
+  options: SelectOption[]
+  value?: string | string[]
+  onChange: (value: string | string[]) => void
+  placeholder?: string
+  className?: string
+  isMulti?: boolean
+  disabled?: boolean
+}
+
+export const Select = React.forwardRef<HTMLDivElement, SelectProps>(({
+  options,
+  value,
+  onChange,
+  placeholder = "Select...",
+  className,
+  isMulti = false,
+  disabled = false
+}, ref) => {
+  const [isOpen, setIsOpen] = React.useState(false)
+  const selectRef = React.useRef<HTMLDivElement>(null)
+
+  // Handle click outside to close dropdown
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedValues = React.useMemo(() => {
+    if (!value) return []
+    return Array.isArray(value) ? value : [value]
+  }, [value])
+
+  const handleSelect = (optionValue: string) => {
+    if (isMulti) {
+      const newValue = selectedValues.includes(optionValue)
+        ? selectedValues.filter(v => v !== optionValue)
+        : [...selectedValues, optionValue]
+      onChange(newValue)
+    } else {
+      onChange(optionValue)
+      setIsOpen(false)
+    }
+  }
+
+  const removeValue = (optionValue: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isMulti) {
+      onChange(selectedValues.filter(v => v !== optionValue))
+    }
+  }
+
+  const displayValue = () => {
+    if (selectedValues.length === 0) return placeholder
+    
+    const selectedOptions = options.filter(opt => selectedValues.includes(opt.value))
+    
+    if (!isMulti) {
+      return selectedOptions[0]?.label
+    }
+
+    return (
+      <div className={styles['select-multi-value']}>
+        {selectedOptions.map(option => (
+          <span key={option.value} className={styles['select-multi-value-item']}>
+            {option.label}
+            <X
+              className={styles['select-multi-value-remove']}
+              onClick={(e) => removeValue(option.value, e)}
+            />
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div ref={selectRef} className={styles['select-container']}>
+      <div
+        ref={ref}
+        className={cn(
+          styles['select-trigger'],
+          isOpen && styles['select-trigger--open'],
+          disabled && styles['select-trigger--disabled'],
+          className
+        )}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+      >
+        <div className={styles['select-value']}>{displayValue()}</div>
+        <ChevronDown className={cn(
+          styles['select-trigger__icon'],
+          isOpen && styles['select-trigger__icon--open']
+        )} />
+      </div>
+
+      {isOpen && !disabled && (
+        <div className={styles['select-content']}>
+          <div className={styles['select-viewport']}>
+            {options.map((option) => (
+              <div
+                key={option.value}
+                className={cn(
+                  styles['select-item'],
+                  selectedValues.includes(option.value) && styles['select-item--selected'],
+                  option.disabled && styles['select-item--disabled']
+                )}
+                onClick={() => !option.disabled && handleSelect(option.value)}
+              >
+                {option.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+})
+
+Select.displayName = 'Select'
