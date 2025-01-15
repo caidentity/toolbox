@@ -1,0 +1,147 @@
+// Variables
+$table-border-color: #e2e8f0;
+$table-header-bg: #f8fafc;
+$table-stripe-bg: #f1f5f9;
+$table-hover-bg: #e2e8f0;
+$table-text-color: #1e293b;
+$table-header-text-color: #475569;
+$border-radius: 0.5rem;
+$spacing-sm: 0.75rem;
+$spacing-md: 1rem;
+$transition-speed: 0.2s;
+
+// Mixins
+@mixin table-cell-padding {
+  padding: $spacing-sm $spacing-md;
+}
+
+@mixin table-text {
+  color: $table-text-color;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+// Table Styles
+.container {
+  width: 100%;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  border-radius: $border-radius;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  @include table-text;
+
+  // Header styles
+  .header {
+    background-color: $table-header-bg;
+    border-bottom: 2px solid $table-border-color;
+  }
+
+  .headerCell {
+    @include table-cell-padding;
+    font-weight: 600;
+    text-align: left;
+    color: $table-header-text-color;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+
+    &:first-child {
+      border-top-left-radius: $border-radius;
+    }
+
+    &:last-child {
+      border-top-right-radius: $border-radius;
+    }
+  }
+
+  // Body styles
+  .row {
+    border-bottom: 1px solid $table-border-color;
+    transition: background-color $transition-speed ease-in-out;
+
+    &:nth-child(even) {
+      background-color: $table-stripe-bg;
+    }
+
+    &:hover {
+      background-color: $table-hover-bg;
+    }
+
+    &:last-child {
+      border-bottom: none;
+
+      .cell:first-child {
+        border-bottom-left-radius: $border-radius;
+      }
+
+      .cell:last-child {
+        border-bottom-right-radius: $border-radius;
+      }
+    }
+  }
+
+  .cell {
+    @include table-cell-padding;
+    vertical-align: middle;
+  }
+}
+
+// Responsive styles
+@media (max-width: 640px) {
+  .table {
+    .header {
+      display: none;
+    }
+
+    .row {
+      display: block;
+      margin-bottom: $spacing-md;
+      border: 1px solid $table-border-color;
+    }
+
+    .cell {
+      display: block;
+      text-align: right;
+      padding: $spacing-sm;
+      border-bottom: 1px solid $table-border-color;
+
+      &:before {
+        content: attr(data-label);
+        float: left;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+  }
+}
+
+// Modifiers
+.compact {
+  .cell, .headerCell {
+    padding: ($spacing-sm / 2) ($spacing-md / 2);
+    font-size: 0.8125rem;
+  }
+}
+
+.borderless {
+  .row {
+    border-bottom: none;
+  }
+}
+
+.centered {
+  .cell, .headerCell {
+    text-align: center;
+  }
+}

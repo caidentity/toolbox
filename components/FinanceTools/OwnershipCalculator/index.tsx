@@ -8,8 +8,11 @@ import { Select } from '@/components/ui/Select';
 import { CustomSlider } from '@/components/ui/Slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import "./OwnershipCalculator.scss";
+import "../../ui/Table/Table.module.scss";
+
 import { Download as DownloadIcon, Clipboard as ClipboardIcon } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import styles from '../../ui/Table/Table.module.scss';
 
 // Define the round type and order
 type RoundKey = 'angel' | 'preSeed' | 'seed' | 'seriesA' | 'seriesB' | 'seriesC' | 'seriesD' | 'seriesE' | 'seriesF';
@@ -437,27 +440,27 @@ const OwnershipCalculator = () => {
               
               <div className="space-y-2">
                 <h4 className="font-medium">Dilution Breakdown</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px]">
+                <div className={styles.container}>
+                  <table className={`${styles.table} ${styles.compact}`}>
                     <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Round</th>
-                        <th className="text-right p-2">Ownership</th>
-                        <th className="text-right p-2">Dilution</th>
-                        <th className="text-right p-2">Shares</th>
-                        <th className="text-right p-2">Value at Exit</th>
+                      <tr className={styles.header}>
+                        <th className={styles.headerCell}>Round</th>
+                        <th className={styles.headerCell}>Ownership</th>
+                        <th className={styles.headerCell}>Dilution</th>
+                        <th className={styles.headerCell}>Shares</th>
+                        <th className={styles.headerCell}>Value at Exit</th>
                       </tr>
                     </thead>
                     <tbody>
                       {calculateCumulativeDilution(results.initialOwnership).map((data, index) => (
-                        <tr key={index} className="border-b">
-                          <td className="p-2">{data.round}</td>
-                          <td className="text-right p-2">{data.ownership.toFixed(2)}%</td>
-                          <td className="text-right p-2 text-red-500">
+                        <tr key={index} className={styles.row}>
+                          <td className={styles.cell}>{data.round}</td>
+                          <td className={styles.cell}>{data.ownership.toFixed(2)}%</td>
+                          <td className={`${styles.cell} text-red-500`}>
                             {data.dilution > 0 ? `-${data.dilution.toFixed(2)}%` : '0%'}
                           </td>
-                          <td className="text-right p-2">{data.shares.toLocaleString()}</td>
-                          <td className="text-right p-2">{formatValue(data.value)}</td>
+                          <td className={styles.cell}>{data.shares.toLocaleString()}</td>
+                          <td className={styles.cell}>{formatValue(data.value)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -468,59 +471,59 @@ const OwnershipCalculator = () => {
               {/* Vesting schedule section */}
               <div className="space-y-2">
                 <h4 className="font-medium">Vesting Schedule ({vestingSchedules[vestingSchedule].name})</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px]">
+                <div className={styles.container}>
+                  <table className={`${styles.table} ${styles.compact}`}>
                     <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Year</th>
-                        <th className="text-right p-2">Shares Vesting</th>
-                        <th className="text-right p-2">Value at Exit</th>
-                        <th className="text-right p-2">% Vested</th>
-                        <th className="text-right p-2">Cumulative Shares</th>
-                        <th className="text-right p-2">Cumulative Value</th>
-                        <th className="text-right p-2">Cumulative %</th>
+                      <tr className={styles.header}>
+                        <th className={styles.headerCell}>Year</th>
+                        <th className={styles.headerCell}>Shares Vesting</th>
+                        <th className={styles.headerCell}>Value at Exit</th>
+                        <th className={styles.headerCell}>% Vested</th>
+                        <th className={styles.headerCell}>Cumulative Shares</th>
+                        <th className={styles.headerCell}>Cumulative Value</th>
+                        <th className={styles.headerCell}>Cumulative %</th>
                       </tr>
                     </thead>
                     <tbody>
                       {calculateYearlyVesting().map((year) => (
-                        <tr key={year.year} className="border-b">
-                          <td className="p-2">
+                        <tr key={year.year} className={styles.row}>
+                          <td className={styles.cell}>
                             {year.year === 0 ? 'Immediate' : `Year ${year.year}`}
                           </td>
-                          <td className="text-right p-2">
+                          <td className={styles.cell}>
                             {year.shares.toLocaleString()}
                           </td>
-                          <td className="text-right p-2">
+                          <td className={styles.cell}>
                             {formatValue(year.valueAtExit)}
                           </td>
-                          <td className="text-right p-2">
+                          <td className={styles.cell}>
                             {year.percentVested.toFixed(1)}%
                           </td>
-                          <td className="text-right p-2">
+                          <td className={styles.cell}>
                             {year.cumulative.shares.toLocaleString()}
                           </td>
-                          <td className="text-right p-2">
+                          <td className={styles.cell}>
                             {formatValue(year.cumulative.valueAtExit)}
                           </td>
-                          <td className="text-right p-2">
+                          <td className={styles.cell}>
                             {year.cumulative.percentVested.toFixed(1)}%
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="border-t-2 font-medium">
-                      <tr>
-                        <td className="p-2">Total</td>
-                        <td className="text-right p-2">
+                    <tfoot>
+                      <tr className={styles.row}>
+                        <td className={styles.cell}>Total</td>
+                        <td className={styles.cell}>
                           {results.finalShares.toLocaleString()}
                         </td>
-                        <td className="text-right p-2">
+                        <td className={styles.cell}>
                           {formatValue(results.dilutedValue)}
                         </td>
-                        <td className="text-right p-2">100%</td>
-                        <td className="text-right p-2">-</td>
-                        <td className="text-right p-2">-</td>
-                        <td className="text-right p-2">-</td>
+                        <td className={styles.cell}>100%</td>
+                        <td className={styles.cell}>-</td>
+                        <td className={styles.cell}>-</td>
+                        <td className={styles.cell}>-</td>
                       </tr>
                     </tfoot>
                   </table>
