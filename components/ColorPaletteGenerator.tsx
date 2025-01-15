@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import CurveEditor from './CurveEditor'
 import './ColorPaletteGenerator.scss'
 
 interface ColorBand {
@@ -9,20 +10,94 @@ interface ColorBand {
   saturation: number
   lightness: number
   steps: number
+  curvePoints: Point[]
+}
+
+interface Point {
+  x: number
+  y: number
 }
 
 export default function ColorPaletteGenerator() {
   const [colorBands, setColorBands] = useState<ColorBand[]>([
-    { id: 1, hue: 0, saturation: 100, lightness: 50, steps: 12 },
-    { id: 2, hue: 120, saturation: 100, lightness: 50, steps: 12 },
-    { id: 3, hue: 240, saturation: 100, lightness: 50, steps: 12 },
-    { id: 4, hue: 60, saturation: 100, lightness: 50, steps: 12 },
-    { id: 5, hue: 180, saturation: 100, lightness: 50, steps: 12 },
+    {
+      id: 1,
+      hue: 0,
+      saturation: 100,
+      lightness: 50,
+      steps: 12,
+      curvePoints: [
+        { x: 0, y: 150 },
+        { x: 66, y: 100 },
+        { x: 133, y: 50 },
+        { x: 200, y: 0 }
+      ]
+    },
+    { id: 2, hue: 120, saturation: 100, lightness: 50, steps: 12, curvePoints: [
+      { x: 0, y: 150 },
+      { x: 66, y: 100 },
+      { x: 133, y: 50 },
+      { x: 200, y: 0 }
+    ]},
+    { id: 3, hue: 240, saturation: 100, lightness: 50, steps: 12, curvePoints: [
+      { x: 0, y: 150 },
+      { x: 66, y: 100 },
+      { x: 133, y: 50 },
+      { x: 200, y: 0 }
+    ]},
+    { id: 4, hue: 60, saturation: 100, lightness: 50, steps: 12, curvePoints: [
+      { x: 0, y: 150 },
+      { x: 66, y: 100 },
+      { x: 133, y: 50 },
+      { x: 200, y: 0 }
+    ]},
+    { id: 5, hue: 180, saturation: 100, lightness: 50, steps: 12, curvePoints: [
+      { x: 0, y: 150 },
+      { x: 66, y: 100 },
+      { x: 133, y: 50 },
+      { x: 200, y: 0 }
+    ]},
   ])
+
+  // Add this utility function for cubic Bézier curve calculation
+  const calculateBezierPoint = (t: number, p0: Point, p1: Point, p2: Point, p3: Point) => {
+    const oneMinusT = 1 - t
+    const oneMinusTSquared = oneMinusT * oneMinusT
+    const oneMinusTCubed = oneMinusTSquared * oneMinusT
+    const tSquared = t * t
+    const tCubed = tSquared * t
+
+    const x = oneMinusTCubed * p0.x +
+      3 * oneMinusTSquared * t * p1.x +
+      3 * oneMinusT * tSquared * p2.x +
+      tCubed * p3.x
+
+    const y = oneMinusTCubed * p0.y +
+      3 * oneMinusTSquared * t * p1.y +
+      3 * oneMinusT * tSquared * p2.y +
+      tCubed * p3.y
+
+    return { x, y }
+  }
 
   const generateColorSteps = (band: ColorBand) => {
     return Array.from({ length: band.steps }, (_, i) => {
-      const lightness = (i * (100 / (band.steps - 1)))
+      // Calculate progress (0 to 1)
+      const t = i / (band.steps - 1)
+      
+      // Get the point on the Bézier curve
+      const point = calculateBezierPoint(
+        t,
+        band.curvePoints[0],
+        band.curvePoints[1],
+        band.curvePoints[2],
+        band.curvePoints[3]
+      )
+      
+      // Convert y position (150 to 0) to lightness (0 to 100)
+      // 150 is the height of our curve editor
+      const lightness = Math.max(0, Math.min(100, 100 - (point.y / 150 * 100)))
+      
       return `hsl(${band.hue}, ${band.saturation}%, ${lightness}%)`
     })
   }
@@ -34,7 +109,13 @@ export default function ColorPaletteGenerator() {
       hue: Math.floor(Math.random() * 360),
       saturation: 100,
       lightness: 50,
-      steps: 12
+      steps: 12,
+      curvePoints: [
+        { x: 0, y: 150 },
+        { x: 66, y: 100 },
+        { x: 133, y: 50 },
+        { x: 200, y: 0 }
+      ]
     }])
   }
 
@@ -48,18 +129,17 @@ export default function ColorPaletteGenerator() {
     ))
   }
 
+  const handleCurveChange = (bandId: number, newPoints: Point[]) => {
+    setColorBands(colorBands.map(band => 
+      band.id === bandId ? { ...band, curvePoints: newPoints } : band
+    ))
+  }
+
   return (
     <div className="color-generator">
       <div className="sidebar">
         <h2>Settings</h2>
         
-        <button
-          onClick={addColorBand}
-          className="add-band-btn"
-        >
-          Add Color Band
-        </button>
-
         <div className="bands-controls">
           {colorBands.map(band => (
             <div key={band.id} className="band-control">
@@ -110,6 +190,16 @@ export default function ColorPaletteGenerator() {
                     onChange={(e) => updateBand(band.id, 'steps', Number(e.target.value))}
                   />
                 </label>
+              </div>
+
+              <div className="curve-editor-container">
+                <h3>Lightness Curve</h3>
+                <CurveEditor
+                  width={200}
+                  height={150}
+                  points={band.curvePoints}
+                  onChange={(newPoints) => handleCurveChange(band.id, newPoints)}
+                />
               </div>
             </div>
           ))}

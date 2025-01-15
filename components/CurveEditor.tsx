@@ -1,7 +1,11 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import type { Point } from '../types'
+
+interface Point {
+  x: number
+  y: number
+}
 
 interface Props {
   points: Point[]
@@ -10,12 +14,16 @@ interface Props {
   height?: number
 }
 
-export function CurveEditor({ 
+export default function CurveEditor({ 
   points, 
   onChange, 
   width = 200, 
   height = 150 
 }: Props) {
+  if (points.length < 4) {
+    return <div>Need at least 4 points to create a curve</div>
+  }
+  
   const svgRef = useRef<SVGSVGElement>(null)
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
 
@@ -33,6 +41,10 @@ export function CurveEditor({
   }, [])
 
   const createPath = (points: Point[]) => {
+    if (points.length < 4) {
+      return ''
+    }
+    
     return `M ${points[0].x},${points[0].y} 
             C ${points[1].x},${points[1].y} 
               ${points[2].x},${points[2].y}
