@@ -8,6 +8,8 @@ import { Select } from '@/components/ui/Select';
 import { CustomSlider } from '@/components/ui/Slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import "./OwnershipCalculator.scss";
+import { Download as DownloadIcon, Clipboard as ClipboardIcon } from 'lucide-react';
+import Button from '@/components/ui/Button';
 
 // Define the round type and order
 type RoundKey = 'angel' | 'preSeed' | 'seed' | 'seriesA' | 'seriesB' | 'seriesC' | 'seriesD' | 'seriesE' | 'seriesF';
@@ -87,6 +89,15 @@ const getRoundLabel = (key: RoundKey) => {
   return `${round.name} (${round.dilution}% dilution, ${round.range})`;
 };
 
+// Add this type for dilution data
+type DilutionData = {
+  round: string;
+  ownership: number;
+  dilution: number;
+  shares: number;
+  value: number;
+};
+
 const OwnershipCalculator = () => {
   // Initial ownership inputs with proper typing
   const [ownershipType, setOwnershipType] = useState<'percentage' | 'shares'>('percentage');
@@ -136,26 +147,41 @@ const OwnershipCalculator = () => {
     return remainingOwnership;
   };
 
-  // Add a function to calculate cumulative dilution for each round
-  const calculateCumulativeDilution = (initialOwnership: number): { [key in RoundKey]?: number } => {
-    const dilutionByRound: { [key in RoundKey]?: number } = {};
+  // Update the calculateCumulativeDilution function to include more data
+  const calculateCumulativeDilution = (initialOwnership: number): DilutionData[] => {
+    const dilutionData: DilutionData[] = [];
     let currentOwnership = initialOwnership;
+    let previousOwnership = initialOwnership;
     
     const startIndex = roundOrder.indexOf(startRound);
     const exitIndex = roundOrder.indexOf(exitRound);
     
-    // Add initial ownership
-    dilutionByRound[startRound] = currentOwnership;
+    // Add initial round data
+    dilutionData.push({
+      round: rounds[startRound].name,
+      ownership: currentOwnership,
+      dilution: 0,
+      shares: Math.round((currentOwnership / 100) * totalShares),
+      value: (currentOwnership / 100) * exitValue
+    });
     
-    // Calculate ownership after each round
+    // Calculate for subsequent rounds
     for (let i = startIndex + 1; i <= exitIndex; i++) {
       const round = roundOrder[i];
       const roundDilution = rounds[round].dilution;
+      previousOwnership = currentOwnership;
       currentOwnership = currentOwnership * (1 - (roundDilution / 100));
-      dilutionByRound[round] = currentOwnership;
+      
+      dilutionData.push({
+        round: rounds[round].name,
+        ownership: currentOwnership,
+        dilution: previousOwnership - currentOwnership,
+        shares: Math.round((currentOwnership / 100) * totalShares),
+        value: (currentOwnership / 100) * exitValue
+      });
     }
     
-    return dilutionByRound;
+    return dilutionData;
   };
 
   // Update results calculation to include round-by-round breakdown
@@ -322,35 +348,49 @@ const OwnershipCalculator = () => {
             <CardTitle>Results</CardTitle>
           </CardHeader>
           <CardContent>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="p-2 text-left">Metric</th>
-                  <th className="p-2 text-left">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b">
-                  <td className="p-2">Initial Ownership</td>
-                  <td className="p-2 font-medium">{results.initialOwnership.toFixed(2)}%</td>
-                </tr>
-                {Object.entries(results.dilutionBreakdown).map(([round, ownership]) => (
-                  <tr key={round} className="border-b">
-                    <td className="p-2">After {rounds[round as RoundKey].name}</td>
-                    <td className="p-2 font-medium">{ownership.toFixed(2)}%</td>
-                  </tr>
-                ))}
-                <tr className="border-b">
-                  <td className="p-2">Final Exit Value</td>
-                  <td className="p-2 font-medium">{formatValue(results.dilutedValue)}</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="space-y-6">
+              {/* Existing summary sections */}
+              
+              <div className="space-y-2">
+                <h4 className="font-medium">Dilution Breakdown</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[600px]">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Round</th>
+                        <th className="text-right p-2">Ownership</th>
+                        <th className="text-right p-2">Dilution</th>
+                        <th className="text-right p-2">Shares</th>
+                        <th className="text-right p-2">Value at Exit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calculateCumulativeDilution(results.initialOwnership).map((data, index) => (
+                        <tr key={index} className="border-b">
+                          <td className="p-2">{data.round}</td>
+                          <td className="text-right p-2">{data.ownership.toFixed(2)}%</td>
+                          <td className="text-right p-2 text-red-500">
+                            {data.dilution > 0 ? `-${data.dilution.toFixed(2)}%` : '0%'}
+                          </td>
+                          <td className="text-right p-2">{data.shares.toLocaleString()}</td>
+                          <td className="text-right p-2">{formatValue(data.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Vesting schedule section */}
+            </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">
               * Calculations are estimates based on typical dilution patterns
             </p>
+            <div className="flex gap-2">
+  
+            </div>
           </CardFooter>
         </Card>
       </div>

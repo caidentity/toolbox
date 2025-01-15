@@ -1,0 +1,145 @@
+// _button.scss
+
+// Variables
+$button-primary: #3b82f6;
+$button-secondary: #6b7280;
+$button-destructive: #ef4444;
+$button-disabled: #9ca3af;
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  outline: none;
+  border: none;
+
+  // Base states
+  &:focus {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  // Sizes
+  &--sm {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  &--md {
+    height: 40px;
+    padding: 0 16px;
+    font-size: 16px;
+  }
+
+  &--lg {
+    height: 48px;
+    padding: 0 24px;
+    font-size: 18px;
+  }
+
+  &--icon {
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+  }
+
+  // Variants
+  &--primary {
+    background: $button-primary;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: darken($button-primary, 10%);
+    }
+  }
+
+  &--secondary {
+    background: $button-secondary;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: darken($button-secondary, 10%);
+    }
+  }
+
+  &--destructive {
+    background: $button-destructive;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: darken($button-destructive, 10%);
+    }
+  }
+
+  &--outline {
+    background: transparent;
+    border: 2px solid $button-secondary;
+    color: $button-secondary;
+
+    &:hover:not(:disabled) {
+      background: rgba($button-secondary, 0.1);
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: $button-secondary;
+
+    &:hover:not(:disabled) {
+      background: rgba($button-secondary, 0.1);
+    }
+  }
+
+  &--link {
+    background: transparent;
+    color: $button-primary;
+    padding: 0;
+    height: auto;
+
+    &:hover:not(:disabled) {
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    &:focus {
+      box-shadow: none;
+    }
+  }
+
+  // Full width modifier
+  &--full-width {
+    width: 100%;
+  }
+
+  // Loading state
+  &--loading {
+    position: relative;
+    color: transparent;
+
+    .button__spinner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation: spin 1s linear infinite;
+    }
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
