@@ -1,7 +1,5 @@
-'use client';
-
-import ColorPaletteGenerator from '@/components/ColorPaletteGenerator';
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return <ColorPaletteGenerator />
+  redirect('/tools/color-palette');
 } 
