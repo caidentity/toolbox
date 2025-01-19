@@ -10,7 +10,7 @@
       bottom: 0;
       width: 280px;
       background: var(--background-secondary);
-      padding: 16px;
+      padding: 80px 16px 0px;
       box-shadow: 1px 0 8px rgba(0, 0, 0, 0.08);
       overflow-y: auto;
   
@@ -150,9 +150,9 @@
     }
   
     .main-content {
-      margin-left: 280px;
+      margin: 60px 0px 280px 280px;
       flex: 1;
-      padding: 24px;
+      padding: 16px;
   
       h1 {
         font-size: 24px;
@@ -164,7 +164,7 @@
       .color-bands {
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
+        gap: 8px;
   
         .band-container {
           position: relative;

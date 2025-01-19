@@ -26,6 +26,7 @@ export default function Navigation() {
 
   return (
     <nav className="tools-navigation">
+      <div className="tools-label">Tools</div>
       <div 
         className="tools-navigation__selector"
         onClick={() => setIsOpen(!isOpen)}

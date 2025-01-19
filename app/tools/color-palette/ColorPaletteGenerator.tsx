@@ -11,11 +11,96 @@ interface ColorBand {
   lightness: number
   steps: number
   curvePoints: Point[]
+  name: string
 }
 
 interface Point {
   x: number
   y: number
+}
+
+// Add this color naming function
+const generateColorName = (hue: number, saturation: number): string => {
+  const colorNames: { range: [number, number]; names: { [key: string]: string[] } }[] = [
+    {
+      range: [350, 10], // True reds
+      names: {
+        high: ['Ruby', 'Crimson', 'Scarlet', 'Cardinal', 'Cherry', 'Fire'],
+        low: ['Rose', 'Coral', 'Salmon', 'Terra Cotta', 'Brick']
+      }
+    },
+    {
+      range: [11, 40], // Oranges
+      names: {
+        high: ['Tangerine', 'Orange', 'Amber', 'Marigold', 'Rust', 'Carrot'],
+        low: ['Peach', 'Apricot', 'Melon', 'Cantaloupe', 'Sand']
+      }
+    },
+    {
+      range: [41, 65], // Yellows
+      names: {
+        high: ['Sunshine', 'Lemon', 'Gold', 'Honey', 'Daffodil', 'Canary'],
+        low: ['Butter', 'Cream', 'Wheat', 'Vanilla', 'Banana', 'Straw']
+      }
+    },
+    {
+      range: [66, 150], // Greens
+      names: {
+        high: ['Emerald', 'Kelly', 'Forest', 'Jade', 'Pine', 'Shamrock', 'Juniper'],
+        low: ['Sage', 'Mint', 'Seafoam', 'Pistachio', 'Moss', 'Fern', 'Olive']
+      }
+    },
+    {
+      range: [151, 190], // Cyan/Turquoise
+      names: {
+        high: ['Turquoise', 'Teal', 'Aqua', 'Ocean', 'Caribbean', 'Lagoon'],
+        low: ['Sky', 'Powder', 'Azure', 'Robin', 'Crystal', 'Mist']
+      }
+    },
+    {
+      range: [191, 250], // Blues
+      names: {
+        high: ['Sapphire', 'Cobalt', 'Navy', 'Royal', 'Indigo', 'Cerulean', 'Arctic'],
+        low: ['Cornflower', 'Steel', 'Periwinkle', 'Denim', 'Baby Blue', 'Cloud']
+      }
+    },
+    {
+      range: [251, 290], // Purples
+      names: {
+        high: ['Royal', 'Violet', 'Amethyst', 'Grape', 'Eggplant', 'Byzantium'],
+        low: ['Lavender', 'Lilac', 'Wisteria', 'Thistle', 'Heather', 'Iris']
+      }
+    },
+    {
+      range: [291, 330], // Magentas
+      names: {
+        high: ['Magenta', 'Fuchsia', 'Purple', 'Wine', 'Mulberry', 'Burgundy'],
+        low: ['Orchid', 'Plum', 'Mauve', 'Raspberry', 'Mallow', 'Dusty Rose']
+      }
+    },
+    {
+      range: [331, 349], // Pink-Reds
+      names: {
+        high: ['Hot Pink', 'Berry', 'Cerise', 'Ruby Rose', 'Punch', 'Watermelon'],
+        low: ['Pink', 'Blush', 'Rose', 'Flamingo', 'Petal', 'Ballet']
+      }
+    }
+  ]
+
+  const normalizedHue = ((hue % 360) + 360) % 360
+  const colorRange = colorNames.find(({ range }) => {
+    if (range[0] > range[1]) {
+      return normalizedHue >= range[0] || normalizedHue <= range[1]
+    }
+    return normalizedHue >= range[0] && normalizedHue <= range[1]
+  })
+
+  if (!colorRange) return 'Color'
+
+  const intensityKey = saturation > 65 ? 'high' : 'low'
+  const possibleNames = colorRange.names[intensityKey]
+  
+  return possibleNames[Math.floor(Math.random() * possibleNames.length)]
 }
 
 export default function ColorPaletteGenerator() {
@@ -26,6 +111,7 @@ export default function ColorPaletteGenerator() {
       saturation: 100,
       lightness: 50,
       steps: 12,
+      name: 'Ruby',
       curvePoints: [
         { x: 0, y: 150 },
         { x: 66, y: 100 },
@@ -33,25 +119,25 @@ export default function ColorPaletteGenerator() {
         { x: 200, y: 0 }
       ]
     },
-    { id: 2, hue: 120, saturation: 100, lightness: 50, steps: 12, curvePoints: [
+    { id: 2, hue: 120, saturation: 100, lightness: 50, steps: 12, name: 'Sapphire', curvePoints: [
       { x: 0, y: 150 },
       { x: 66, y: 100 },
       { x: 133, y: 50 },
       { x: 200, y: 0 }
     ]},
-    { id: 3, hue: 240, saturation: 100, lightness: 50, steps: 12, curvePoints: [
+    { id: 3, hue: 240, saturation: 100, lightness: 50, steps: 12, name: 'Emerald', curvePoints: [
       { x: 0, y: 150 },
       { x: 66, y: 100 },
       { x: 133, y: 50 },
       { x: 200, y: 0 }
     ]},
-    { id: 4, hue: 60, saturation: 100, lightness: 50, steps: 12, curvePoints: [
+    { id: 4, hue: 60, saturation: 100, lightness: 50, steps: 12, name: 'Ruby', curvePoints: [
       { x: 0, y: 150 },
       { x: 66, y: 100 },
       { x: 133, y: 50 },
       { x: 200, y: 0 }
     ]},
-    { id: 5, hue: 180, saturation: 100, lightness: 50, steps: 12, curvePoints: [
+    { id: 5, hue: 180, saturation: 100, lightness: 50, steps: 12, name: 'Sapphire', curvePoints: [
       { x: 0, y: 150 },
       { x: 66, y: 100 },
       { x: 133, y: 50 },
@@ -107,12 +193,16 @@ export default function ColorPaletteGenerator() {
 
   const addColorBand = () => {
     const newId = Math.max(...colorBands.map(b => b.id)) + 1
+    const newHue = Math.floor(Math.random() * 360)
+    const newSaturation = 100
+    
     setColorBands([...colorBands, {
       id: newId,
-      hue: Math.floor(Math.random() * 360),
-      saturation: 100,
+      hue: newHue,
+      saturation: newSaturation,
       lightness: 50,
       steps: 12,
+      name: generateColorName(newHue, newSaturation),
       curvePoints: [
         { x: 0, y: 150 },
         { x: 66, y: 100 },
@@ -127,9 +217,17 @@ export default function ColorPaletteGenerator() {
   }
 
   const updateBand = (id: number, property: keyof ColorBand, value: number) => {
-    setColorBands(colorBands.map(band => 
-      band.id === id ? { ...band, [property]: value } : band
-    ))
+    setColorBands(colorBands.map(band => {
+      if (band.id === id) {
+        const updatedBand = { ...band, [property]: value }
+        // Regenerate name if hue or saturation changes
+        if (property === 'hue' || property === 'saturation') {
+          updatedBand.name = generateColorName(updatedBand.hue, updatedBand.saturation)
+        }
+        return updatedBand
+      }
+      return band
+    }))
   }
 
   const handleCurveChange = (bandId: number, newPoints: Point[]) => {
@@ -158,20 +256,6 @@ export default function ColorPaletteGenerator() {
       return Math.round(255 * color).toString(16).padStart(2, '0');
     };
     return `#${f(0)}${f(8)}${f(4)}`;
-  }
-
-  // Add this helper function at the top of the component
-  const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
-    s /= 100;
-    l /= 100;
-    const k = (n: number) => (n + h / 30) % 12;
-    const a = s * Math.min(l, 1 - l);
-    const f = (n: number) => l - a * Math.max(Math.min(k(n) - 3, 9 - k(n), 1), -1);
-    return [
-      Math.round(f(0) * 255),
-      Math.round(f(8) * 255),
-      Math.round(f(4) * 255)
-    ];
   }
 
   return (
@@ -203,7 +287,7 @@ export default function ColorPaletteGenerator() {
               className={`band-tab ${activeTab === band.id ? 'active' : ''}`}
               onClick={() => setActiveTab(band.id)}
             >
-              Band {band.id}
+              {band.name}
             </button>
           ))}
           <button 
@@ -218,7 +302,7 @@ export default function ColorPaletteGenerator() {
         {activeBand && (
           <div className="band-control">
             <div className="band-header">
-              <span className="band-title">Band {activeBand.id}</span>
+              <span className="band-title">{activeBand.name}</span>
               <button
                 onClick={() => removeColorBand(activeBand.id)}
                 className="remove-btn"
@@ -273,12 +357,11 @@ export default function ColorPaletteGenerator() {
           {colorBands.map(band => (
             <div key={band.id} className="band-container">
               <div className="color-steps">
-                <div className="band-title">Band {band.id}</div>
+                <div className="band-title">{band.name}</div>
                 {generateColorSteps(band).map((color, index) => {
                   // Parse the HSL values from the color string
                   const [h, s, l] = color.match(/\d+/g)!.map(Number);
                   const hexColor = hslToHex(h, s, l);
-                  const [r, g, b] = hslToRgb(h, s, l);
                   
                   return (
                     <div
@@ -304,10 +387,7 @@ export default function ColorPaletteGenerator() {
                       }}
                     >
                       <div className="color-info">
-                        <div className="color-values">
-                          <span>{hexColor}</span>
-                          <span>rgba({r}, {g}, {b}, 1)</span>
-                        </div>
+                        <span>{hexColor}</span>
                       </div>
                     </div>
                   );
