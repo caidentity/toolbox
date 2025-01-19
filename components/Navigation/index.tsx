@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTheme } from '../ThemeProvider';
 import './Navigation.scss';
 
 type Tool = {
@@ -19,6 +20,7 @@ const tools: Tool[] = [
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
   
   const currentTool = tools.find(tool => tool.path === pathname) ?? tools[0];
 
@@ -55,6 +57,13 @@ export default function Navigation() {
           ))}
         </div>
       )}
+      <button 
+        onClick={toggleTheme}
+        className="theme-toggle"
+        aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+      >
+        {theme === 'light' ? '🌙' : '☀️'}
+      </button>
     </nav>
   );
 } 
