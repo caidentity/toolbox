@@ -58,6 +58,9 @@ export default function ColorPaletteGenerator() {
       { x: 200, y: 0 }
     ]},
   ])
+  
+  const [activeTab, setActiveTab] = useState(1)
+  const [globalSteps, setGlobalSteps] = useState(12)
 
   // Add this utility function for cubic Bézier curve calculation
   const calculateBezierPoint = (t: number, p0: Point, p1: Point, p2: Point, p3: Point) => {
@@ -135,75 +138,106 @@ export default function ColorPaletteGenerator() {
     ))
   }
 
+  const updateGlobalSteps = (steps: number) => {
+    setGlobalSteps(steps)
+    setColorBands(colorBands.map(band => ({
+      ...band,
+      steps
+    })))
+  }
+
+  const activeBand = colorBands.find(band => band.id === activeTab)
+
   return (
     <div className="color-generator">
       <div className="sidebar">
         <h2>Settings</h2>
         
-        <div className="bands-controls">
-          {colorBands.map(band => (
-            <div key={band.id} className="band-control">
-              <div className="band-header">
-                <span className="band-title">Band {band.id}</span>
-                <button
-                  onClick={() => removeColorBand(band.id)}
-                  className="remove-btn"
-                >
-                  Remove
-                </button>
-              </div>
-
-              <div className="control-group">
-                <label>
-                  Hue ({band.hue}°)
-                  <input
-                    type="range"
-                    min="0"
-                    max="360"
-                    value={band.hue}
-                    onChange={(e) => updateBand(band.id, 'hue', Number(e.target.value))}
-                  />
-                </label>
-              </div>
-
-              <div className="control-group">
-                <label>
-                  Saturation ({band.saturation}%)
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={band.saturation}
-                    onChange={(e) => updateBand(band.id, 'saturation', Number(e.target.value))}
-                  />
-                </label>
-              </div>
-
-              <div className="control-group">
-                <label>
-                  Steps ({band.steps})
-                  <input
-                    type="range"
-                    min="2"
-                    max="20"
-                    value={band.steps}
-                    onChange={(e) => updateBand(band.id, 'steps', Number(e.target.value))}
-                  />
-                </label>
-              </div>
-
-              <div className="curve-editor-container">
-                <h3>Lightness Curve</h3>
-                <CurveEditor
-                  width={200}
-                  height={150}
-                  points={band.curvePoints}
-                  onChange={(newPoints) => handleCurveChange(band.id, newPoints)}
-                />
-              </div>
-            </div>
-          ))}
+        {/* Global Controls */}
+        <div className="global-controls">
+          <div className="control-group">
+            <label>
+              Global Steps ({globalSteps})
+              <input
+                type="range"
+                min="2"
+                max="20"
+                value={globalSteps}
+                onChange={(e) => updateGlobalSteps(Number(e.target.value))}
+              />
+            </label>
+          </div>
         </div>
+
+        {/* Band Tabs */}
+        <div className="band-tabs">
+          {colorBands.map(band => (
+            <button
+              key={band.id}
+              className={`band-tab ${activeTab === band.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(band.id)}
+            >
+              Band {band.id}
+            </button>
+          ))}
+          <button 
+            className="add-band-btn"
+            onClick={addColorBand}
+          >
+            +
+          </button>
+        </div>
+
+        {/* Active Band Controls */}
+        {activeBand && (
+          <div className="band-control">
+            <div className="band-header">
+              <span className="band-title">Band {activeBand.id}</span>
+              <button
+                onClick={() => removeColorBand(activeBand.id)}
+                className="remove-btn"
+              >
+                Remove
+              </button>
+            </div>
+
+            <div className="control-group">
+              <label>
+                Hue ({activeBand.hue}°)
+                <input
+                  type="range"
+                  min="0"
+                  max="360"
+                  value={activeBand.hue}
+                  onChange={(e) => updateBand(activeBand.id, 'hue', Number(e.target.value))}
+                />
+              </label>
+            </div>
+
+            <div className="control-group">
+              <label>
+                Saturation ({activeBand.saturation}%)
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={activeBand.saturation}
+                  onChange={(e) => updateBand(activeBand.id, 'saturation', Number(e.target.value))}
+                />
+              </label>
+            </div>
+
+            <div className="curve-editor-container">
+              <h3>Lightness Curve</h3>
+              <CurveEditor
+                width={200}
+                height={150}
+                points={activeBand.curvePoints}
+                onChange={(newPoints) => handleCurveChange(activeBand.id, newPoints)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="main-content">
