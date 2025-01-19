@@ -323,6 +323,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 8px 16px;
+    width: 100%;
 
     .settings-card-toggle {
       flex: 1;
@@ -333,13 +334,18 @@
       background: none;
       border: none;
       cursor: pointer;
-      transition: background-color 0.2s ease;
 
       h2 {
         font-size: 18px;
         font-weight: 600;
         color: var(--text-primary);
         margin: 0;
+      }
+
+      .settings-card-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .settings-card-chevron {
@@ -353,10 +359,6 @@
 
     .settings-card-action {
       margin-left: 16px;
-    }
-
-    &:hover .settings-card-toggle {
-      background: var(--background-secondary);
     }
   }
 

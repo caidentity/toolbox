@@ -246,22 +246,24 @@ function SettingsCard({
           onClick={() => setIsOpen(!isOpen)}
         >
           <h2>{title}</h2>
-          <svg 
-            className={cn(
-              'settings-card-chevron',
-              isOpen && 'rotate'
-            )}
-            width="16" 
-            height="16" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2"
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-          >
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
+          <div className="settings-card-controls">
+            <svg 
+              className={cn(
+                'settings-card-chevron',
+                isOpen && 'rotate'
+              )}
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2"
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
         </button>
         {headerAction && (
           <div className="settings-card-action">
@@ -576,16 +578,20 @@ export default function ColorPaletteGenerator() {
         <SettingsCard 
           title="View Settings" 
           defaultOpen={false}
-          headerAction={
-            <Button
-              variant={showAccessibilityText ? "secondary" : "ghost"}
-              size="xs"
-              onClick={() => setShowAccessibilityText(!showAccessibilityText)}
-            >
-              {showAccessibilityText ? 'On' : 'Off'}
-            </Button>
-          }
         >
+          <div className="control-group">
+            <div className="control-header">
+              <label>Show Accessibility Text</label>
+              <Button
+                variant={showAccessibilityText ? "secondary" : "ghost"}
+                size="xs"
+                onClick={() => setShowAccessibilityText(!showAccessibilityText)}
+              >
+                {showAccessibilityText ? 'On' : 'Off'}
+              </Button>
+            </div>
+          </div>
+          
           <SettingControl
             label="Band Height"
             value={bandHeight}
