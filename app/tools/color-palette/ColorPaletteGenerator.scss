@@ -162,45 +162,51 @@
       .color-bands {
         display: flex;
         flex-direction: column;
-        gap: 24px;
-      }
+        gap: 1.5rem;
   
-      .band-container {
-        .band-title {
-          font-size: 16px;
-          font-weight: 500;
-          color: #374151;
-          margin-bottom: 12px;
-        }
+        .band-container {
+          position: relative;
+          
+          .band-title {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: rgba(0, 0, 0, 0.7);
+            background: rgba(255, 255, 255, 0.624);
+            padding: 4px 8px;
+            border-radius: 4px;
+            z-index: 1;
+          }
   
-        .color-steps {
-          display: flex;
-          gap: 1px;
-          background: #e5e7eb;
-          border-radius: 6px;
-          overflow: hidden;
+          .color-steps {
+            display: flex;
+            min-height: 120px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   
-          .color-step {
-            flex: 1;
-            height: 48px;
-            position: relative;
-            cursor: pointer;
+            .color-step {
+              flex: 1;
+              position: relative;
   
-            .color-info {
-              position: absolute;
-              inset: 0;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: rgba(0, 0, 0, 0.5);
-              color: white;
-              font-size: 12px;
-              opacity: 0;
-              transition: opacity 0.2s ease;
-            }
+              .color-info {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(0, 0, 0, 0.5);
+                color: white;
+                font-size: 0.75rem;
+                opacity: 0;
+                transition: opacity 0.2s;
+              }
   
-            &:hover .color-info {
-              opacity: 1;
+              &:hover .color-info {
+                opacity: 1;
+              }
             }
           }
         }

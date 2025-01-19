@@ -246,8 +246,8 @@ export default function ColorPaletteGenerator() {
         <div className="color-bands">
           {colorBands.map(band => (
             <div key={band.id} className="band-container">
-              <h3 className="band-title">Band {band.id}</h3>
               <div className="color-steps">
+                <div className="band-title">Band {band.id}</div>
                 {generateColorSteps(band).map((color, index) => (
                   <div
                     key={index}
