@@ -148,6 +148,32 @@ export default function ColorPaletteGenerator() {
 
   const activeBand = colorBands.find(band => band.id === activeTab)
 
+  // Add this helper function at the top of the component
+  const hslToHex = (h: number, s: number, l: number): string => {
+    l /= 100;
+    const a = s * Math.min(l, 1 - l) / 100;
+    const f = (n: number) => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  }
+
+  // Add this helper function at the top of the component
+  const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+    s /= 100;
+    l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => l - a * Math.max(Math.min(k(n) - 3, 9 - k(n), 1), -1);
+    return [
+      Math.round(f(0) * 255),
+      Math.round(f(8) * 255),
+      Math.round(f(4) * 255)
+    ];
+  }
+
   return (
     <div className="color-generator">
       <div className="sidebar">
@@ -248,17 +274,44 @@ export default function ColorPaletteGenerator() {
             <div key={band.id} className="band-container">
               <div className="color-steps">
                 <div className="band-title">Band {band.id}</div>
-                {generateColorSteps(band).map((color, index) => (
-                  <div
-                    key={index}
-                    className="color-step"
-                    style={{ backgroundColor: color }}
-                  >
-                    <div className="color-info">
-                      <span>{color}</span>
+                {generateColorSteps(band).map((color, index) => {
+                  // Parse the HSL values from the color string
+                  const [h, s, l] = color.match(/\d+/g)!.map(Number);
+                  const hexColor = hslToHex(h, s, l);
+                  const [r, g, b] = hslToRgb(h, s, l);
+                  
+                  return (
+                    <div
+                      key={index}
+                      className="color-step"
+                      style={{ backgroundColor: color }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(hexColor).then(() => {
+                          const el = document.createElement('div');
+                          el.style.position = 'fixed';
+                          el.style.top = '1rem';
+                          el.style.left = '50%';
+                          el.style.transform = 'translateX(-50%)';
+                          el.style.background = 'rgba(0, 0, 0, 0.8)';
+                          el.style.color = 'white';
+                          el.style.padding = '0.5rem 1rem';
+                          el.style.borderRadius = '4px';
+                          el.style.fontSize = '0.875rem';
+                          el.textContent = `Copied ${hexColor}`;
+                          document.body.appendChild(el);
+                          setTimeout(() => el.remove(), 2000);
+                        });
+                      }}
+                    >
+                      <div className="color-info">
+                        <div className="color-values">
+                          <span>{hexColor}</span>
+                          <span>rgba({r}, {g}, {b}, 1)</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
