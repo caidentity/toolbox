@@ -1,13 +1,13 @@
 .tools-navigation {
   position: fixed;
-  top: 4px;
-  left: 4px;
+  top: 8px;
+  left: 8px;
   border-left-width: 1rem;
   z-index: 1000;
   display: flex;
   align-items: center;
   gap: 1rem;
-  background-color: var(--background-primary);
+  background-color: var(--background-secondary);
   padding: 0px 4px;
   
   &__selector {
@@ -50,7 +50,7 @@
   
   &__item {
     display: block;
-    padding: 0.75rem 1.5rem;
+    padding: 2px 4px;
     text-decoration: none;
     color: inherit;
     transition: all 0.2s ease;
@@ -66,7 +66,7 @@
 }
 
 .theme-toggle {
-  padding: 8px;
+  padding: 4px;
   background: none;
   border: none;
   cursor: pointer;

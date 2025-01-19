@@ -5,6 +5,7 @@ import CurveEditor from './CurveEditor'
 import './ColorPaletteGenerator.scss'
 import { CustomSlider } from '@/components/ui/Slider'
 import Button from '@/components/ui/Button'
+import { cn } from '@/lib/utils'
 
 interface ColorBand {
   id: number
@@ -220,6 +221,66 @@ const getContrastTextColor = (h: number, s: number, l: number): string => {
   return whiteContrast > blackContrast ? '#ffffff' : '#000000';
 };
 
+interface SettingsCardProps {
+  title: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+  className?: string
+  headerAction?: React.ReactNode
+}
+
+function SettingsCard({ 
+  title, 
+  defaultOpen = true, 
+  children,
+  className,
+  headerAction 
+}: SettingsCardProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  return (
+    <div className={cn('settings-card', className)}>
+      <div className="settings-card-header">
+        <button
+          className="settings-card-toggle"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <h2>{title}</h2>
+          <svg 
+            className={cn(
+              'settings-card-chevron',
+              isOpen && 'rotate'
+            )}
+            width="16" 
+            height="16" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2"
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        {headerAction && (
+          <div className="settings-card-action">
+            {headerAction}
+          </div>
+        )}
+      </div>
+      <div
+        className={cn(
+          'settings-card-content',
+          isOpen ? 'settings-card-open' : 'settings-card-closed'
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function ColorPaletteGenerator() {
   const [colorBands, setColorBands] = useState<ColorBand[]>([
     {
@@ -300,9 +361,33 @@ export default function ColorPaletteGenerator() {
         band.curvePoints[2],
         band.curvePoints[3]
       )
-      const lightness = Math.max(0, Math.min(100, 100 - (point.y / 150 * 100)))
-      const saturation = globalSaturation !== null ? globalSaturation : band.saturation
-      return `hsl(${band.hue}, ${saturation}%, ${lightness}%)`
+      
+      // Enhanced curve sensitivity mapping
+      // Apply a non-linear transformation to increase sensitivity
+      const normalizedY = point.y / 150
+      const curveInfluence = Math.pow(normalizedY, 1.5) // Adjust power for different curve response
+      const lightness = Math.max(5, Math.min(100, (1 - curveInfluence) * 100))
+      
+      // Use global saturation if set, otherwise use band saturation
+      const baseSaturation = globalSaturation !== null ? globalSaturation : band.saturation
+      
+      // Enhanced dynamic saturation adjustment
+      let adjustedSaturation = baseSaturation
+      if (lightness < 30) {
+        // More aggressive saturation boost for darker colors
+        const darkBoost = 1 + (0.5 * (1 - lightness / 30)) // Up to 50% boost at darkest
+        adjustedSaturation = Math.min(100, baseSaturation * darkBoost)
+      } else if (lightness > 85) {
+        // Smoother saturation reduction for light colors
+        const reductionFactor = 1 - ((lightness - 85) / 15) * 0.4 // 40% reduction at max
+        adjustedSaturation = baseSaturation * reductionFactor
+      }
+      
+      // Apply additional color preservation for dark colors
+      const minLightness = Math.max(5, (adjustedSaturation * 0.1)) // Higher saturation = slightly higher min lightness
+      const finalLightness = Math.max(minLightness, lightness)
+      
+      return `hsl(${band.hue}, ${adjustedSaturation}%, ${finalLightness}%)`
     })
   }
 
@@ -407,10 +492,7 @@ export default function ColorPaletteGenerator() {
   return (
     <div className="color-generator">
       <div className="sidebar">
-        <h2>Settings</h2>
-        
-        {/* Global Controls */}
-        <div className="settings-section">
+        <SettingsCard title="Global Settings">
           <SettingControl
             label="Global Steps"
             value={globalSteps}
@@ -428,9 +510,8 @@ export default function ColorPaletteGenerator() {
             onChange={setGlobalSaturation}
             onReset={resetGlobalSaturation}
           />
-        </div>
+        </SettingsCard>
 
-        {/* Band Tabs */}
         <div className="band-tabs">
           {colorBands.map(band => (
             <button
@@ -450,85 +531,79 @@ export default function ColorPaletteGenerator() {
           </Button>
         </div>
 
-        {/* Active Band Controls */}
         {activeBand && (
-          <>
-            <div className="settings-section">
-              <div className="band-header">
-                <span className="band-title">{activeBand.name}</span>
-                <Button
-                  variant="destructive"
-                  size="xs"
-                  onClick={() => removeColorBand(activeBand.id)}
-                  icon="trash_can_filled_24"
-                />
-              </div>
-
-              <SettingControl
-                label="Hue"
-                value={activeBand.hue}
-                min={0}
-                max={360}
-                unit="°"
-                onChange={(value) => updateBand(activeBand.id, 'hue', value)}
+          <SettingsCard 
+            title={activeBand.name}
+            headerAction={
+              <Button
+                variant="destructive"
+                size="xs"
+                onClick={() => removeColorBand(activeBand.id)}
+                icon="trash_can_filled_24"
               />
+            }
+          >
+            <SettingControl
+              label="Hue"
+              value={activeBand.hue}
+              min={0}
+              max={360}
+              unit="°"
+              onChange={(value) => updateBand(activeBand.id, 'hue', value)}
+            />
 
-              <SettingControl
-                label="Saturation"
-                value={activeBand.saturation}
-                min={0}
-                max={100}
-                unit="%"
-                onChange={(value) => updateBand(activeBand.id, 'saturation', value)}
-              />
+            <SettingControl
+              label="Saturation"
+              value={activeBand.saturation}
+              min={0}
+              max={100}
+              unit="%"
+              onChange={(value) => updateBand(activeBand.id, 'saturation', value)}
+            />
 
-              <div className="curve-editor-container">
-                <h3>Lightness Curve</h3>
-                <CurveEditor
-                  width={200}
-                  height={150}
-                  points={activeBand.curvePoints}
-                  onChange={(newPoints) => handleCurveChange(activeBand.id, newPoints)}
-                />
-              </div>
-            </div>
-
-            {/* Separate View Settings Card */}
-            <div className="settings-section">
-              <h2>View Settings</h2>
-              <div className="control-group">
-                <div className="control-header">
-                  <label>Show Accessibility Text</label>
-                  <Button
-                    variant={showAccessibilityText ? "secondary" : "ghost"}
-                    size="xs"
-                    onClick={() => setShowAccessibilityText(!showAccessibilityText)}
-                  >
-                    {showAccessibilityText ? 'On' : 'Off'}
-                  </Button>
-                </div>
-              </div>
-              
-              <SettingControl
-                label="Band Height"
-                value={bandHeight}
-                min={60}
-                max={240}
-                unit="px"
-                onChange={setBandHeight}
-              />
-              
-              <SettingControl
-                label="Band Gap"
-                value={bandGap}
-                min={0}
-                max={32}
-                unit="px"
-                onChange={setBandGap}
+            <div className="curve-editor-container">
+              <h3>Lightness Curve</h3>
+              <CurveEditor
+                width={200}
+                height={150}
+                points={activeBand.curvePoints}
+                onChange={(newPoints) => handleCurveChange(activeBand.id, newPoints)}
               />
             </div>
-          </>
+          </SettingsCard>
         )}
+
+        <SettingsCard 
+          title="View Settings" 
+          defaultOpen={false}
+          headerAction={
+            <Button
+              variant={showAccessibilityText ? "secondary" : "ghost"}
+              size="xs"
+              onClick={() => setShowAccessibilityText(!showAccessibilityText)}
+            >
+              {showAccessibilityText ? 'On' : 'Off'}
+            </Button>
+          }
+        >
+          <SettingControl
+            label="Band Height"
+            value={bandHeight}
+            min={60}
+            max={240}
+            unit="px"
+            onChange={setBandHeight}
+          />
+          
+          <SettingControl
+            label="Band Gap"
+            value={bandGap}
+            min={0}
+            max={32}
+            unit="px"
+            onChange={setBandGap}
+          />
+        </SettingsCard>
       </div>
 
       <div className="main-content">

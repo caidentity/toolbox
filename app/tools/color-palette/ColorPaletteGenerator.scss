@@ -311,3 +311,70 @@
       }
     }
 }
+
+.settings-card {
+  background: var(--background-primary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 24px;
+
+  .settings-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+
+    .settings-card-toggle {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+
+      h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+      }
+
+      .settings-card-chevron {
+        transition: transform 0.2s ease;
+        
+        &.rotate {
+          transform: rotate(180deg);
+        }
+      }
+    }
+
+    .settings-card-action {
+      margin-left: 16px;
+    }
+
+    &:hover .settings-card-toggle {
+      background: var(--background-secondary);
+    }
+  }
+
+  .settings-card-content {
+    padding: 0 16px;
+    overflow: hidden;
+    transition: all 0.2s ease-in-out;
+
+    &.settings-card-closed {
+      padding-top: 0;
+      padding-bottom: 0;
+      height: 0;
+      opacity: 0;
+    }
+
+    &.settings-card-open {
+      padding-bottom: 16px;
+      opacity: 1;
+    }
+  }
+}
