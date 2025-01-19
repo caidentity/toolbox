@@ -12,15 +12,9 @@ $button-disabled: #9ca3af;
   justify-content: center;
   border-radius: 6px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   cursor: pointer;
-  outline: none;
-  border: none;
-
-  // Base states
-  &:focus {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-  }
+  border: 1px solid transparent;
 
   &:disabled {
     opacity: 0.5;
@@ -28,118 +22,138 @@ $button-disabled: #9ca3af;
   }
 
   // Sizes
+  &--xs {
+    padding: 2px 4px;
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+
   &--sm {
-    height: 32px;
-    padding: 0 12px;
-    font-size: 14px;
+    padding: 6px 12px;
+    font-size: 0.875rem;
+    gap: 6px;
   }
 
   &--md {
-    height: 40px;
-    padding: 0 16px;
-    font-size: 16px;
+    padding: 8px 16px;
+    font-size: 1rem;
+    gap: 8px;
   }
 
   &--lg {
-    height: 48px;
-    padding: 0 24px;
-    font-size: 18px;
+    padding: 12px 20px;
+    font-size: 1.125rem;
+    gap: 8px;
   }
 
   &--icon {
-    width: 40px;
-    height: 40px;
     padding: 8px;
+    aspect-ratio: 1;
+  }
+
+  &--icon-only {
+    &.button--xs {
+      padding: 4px;
+    }
+    
+    &.button--sm {
+      padding: 6px;
+    }
+    
+    &.button--md {
+      padding: 8px;
+    }
+    
+    &.button--lg {
+      padding: 10px;
+    }
+  }
+
+  .buttonIcon {
+    color: currentColor;
+    flex-shrink: 0;
   }
 
   // Variants
   &--primary {
-    background: $button-primary;
-    color: white;
-
+    background-color: var(--accent-color);
+    color: var(--background-primary);
     &:hover:not(:disabled) {
-      background: darken($button-primary, 10%);
+      opacity: 0.9;
     }
   }
 
   &--secondary {
-    background: $button-secondary;
-    color: white;
-
+    background-color: transparent;
+    border-color: var(--border-color);
+    color: var(--text-primary);
     &:hover:not(:disabled) {
-      background: darken($button-secondary, 10%);
-    }
-  }
-
-  &--destructive {
-    background: $button-destructive;
-    color: white;
-
-    &:hover:not(:disabled) {
-      background: darken($button-destructive, 10%);
-    }
-  }
-
-  &--outline {
-    background: transparent;
-    border: 2px solid $button-secondary;
-    color: $button-secondary;
-
-    &:hover:not(:disabled) {
-      background: rgba($button-secondary, 0.1);
+      background-color: var(--background-secondary);
     }
   }
 
   &--ghost {
-    background: transparent;
-    color: $button-secondary;
-
+    background-color: transparent;
+    border: none;
+    color: var(--text-primary);
+    
     &:hover:not(:disabled) {
-      background: rgba($button-secondary, 0.1);
+      background-color: var(--background-secondary);
+    }
+  }
+
+  &--destructive {
+    background-color: #dc2626;
+    color: var(--background-primary);
+    &:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+  }
+
+  &--outline {
+    background-color: transparent;
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    &:hover:not(:disabled) {
+      background-color: var(--accent-color);
+      color: var(--background-primary);
     }
   }
 
   &--link {
-    background: transparent;
-    color: $button-primary;
+    background-color: transparent;
+    color: var(--accent-color);
     padding: 0;
-    height: auto;
-
+    text-decoration: underline;
     &:hover:not(:disabled) {
-      text-decoration: underline;
-      text-underline-offset: 4px;
-    }
-
-    &:focus {
-      box-shadow: none;
+      opacity: 0.8;
     }
   }
 
-  // Full width modifier
   &--full-width {
     width: 100%;
   }
 
-  // Loading state
   &--loading {
     position: relative;
-    color: transparent;
+    cursor: wait;
 
-    .button__spinner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      animation: spin 1s linear infinite;
+    > *:not(.button__spinner) {
+      opacity: 0;
     }
   }
 }
 
+.button__spinner {
+  position: absolute;
+  animation: spin 1s linear infinite;
+}
+
 @keyframes spin {
   from {
-    transform: translate(-50%, -50%) rotate(0deg);
+    transform: rotate(0deg);
   }
   to {
-    transform: translate(-50%, -50%) rotate(360deg);
+    transform: rotate(360deg);
   }
 }

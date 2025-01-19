@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import CurveEditor from './CurveEditor'
 import './ColorPaletteGenerator.scss'
+import { CustomSlider } from '@/components/ui/Slider'
+import Button from '@/components/ui/Button'
 
 interface ColorBand {
   id: number
@@ -103,6 +105,57 @@ const generateColorName = (hue: number, saturation: number): string => {
   return possibleNames[Math.floor(Math.random() * possibleNames.length)]
 }
 
+interface SettingControlProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (value: number) => void;
+  onReset?: () => void;
+}
+
+function SettingControl({ 
+  label, 
+  value, 
+  min, 
+  max, 
+  step = 1, 
+  unit = '', 
+  onChange, 
+  onReset 
+}: SettingControlProps) {
+  return (
+    <div className="control-group">
+      <div className="control-header">
+        <label>{label}</label>
+        <div className="value-controls">
+          {onReset && (
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={onReset}
+            >
+              Reset
+            </Button>
+          )}
+          <span className="value-display">
+            {value}{unit}
+          </span>
+        </div>
+      </div>
+      <CustomSlider
+        min={min}
+        max={max}
+        step={step}
+        value={[value]}
+        onChange={([newValue]) => onChange(newValue)}
+      />
+    </div>
+  );
+}
+
 export default function ColorPaletteGenerator() {
   const [colorBands, setColorBands] = useState<ColorBand[]>([
     {
@@ -147,6 +200,9 @@ export default function ColorPaletteGenerator() {
   
   const [activeTab, setActiveTab] = useState(1)
   const [globalSteps, setGlobalSteps] = useState(12)
+  const [globalSaturation, setGlobalSaturation] = useState<number | null>(null)
+  const [bandHeight, setBandHeight] = useState(120)
+  const [bandGap, setBandGap] = useState(8)
 
   // Add this utility function for cubic Bézier curve calculation
   const calculateBezierPoint = (t: number, p0: Point, p1: Point, p2: Point, p3: Point) => {
@@ -171,10 +227,7 @@ export default function ColorPaletteGenerator() {
 
   const generateColorSteps = (band: ColorBand) => {
     return Array.from({ length: band.steps }, (_, i) => {
-      // Calculate progress (0 to 1)
       const t = i / (band.steps - 1)
-      
-      // Get the point on the Bézier curve
       const point = calculateBezierPoint(
         t,
         band.curvePoints[0],
@@ -182,12 +235,9 @@ export default function ColorPaletteGenerator() {
         band.curvePoints[2],
         band.curvePoints[3]
       )
-      
-      // Convert y position (150 to 0) to lightness (0 to 100)
-      // 150 is the height of our curve editor
       const lightness = Math.max(0, Math.min(100, 100 - (point.y / 150 * 100)))
-      
-      return `hsl(${band.hue}, ${band.saturation}%, ${lightness}%)`
+      const saturation = globalSaturation !== null ? globalSaturation : band.saturation
+      return `hsl(${band.hue}, ${saturation}%, ${lightness}%)`
     })
   }
 
@@ -244,6 +294,10 @@ export default function ColorPaletteGenerator() {
     })))
   }
 
+  const resetGlobalSaturation = () => {
+    setGlobalSaturation(null)
+  }
+
   const activeBand = colorBands.find(band => band.id === activeTab)
 
   // Add this helper function at the top of the component
@@ -258,25 +312,57 @@ export default function ColorPaletteGenerator() {
     return `#${f(0)}${f(8)}${f(4)}`;
   }
 
+  const handleCopyScss = () => {
+    const scss = colorBands.map(band => {
+      const colors = generateColorSteps(band);
+      const safeName = band.name.toLowerCase().replace(/\s+/g, '-');
+      
+      return colors.map((color, index) => {
+        return `$${safeName}-${index + 1}: ${color};`;
+      }).join('\n');
+    }).join('\n\n');
+
+    navigator.clipboard.writeText(scss).then(() => {
+      const el = document.createElement('div');
+      el.style.position = 'fixed';
+      el.style.top = '1rem';
+      el.style.left = '50%';
+      el.style.transform = 'translateX(-50%)';
+      el.style.background = 'rgba(0, 0, 0, 0.8)';
+      el.style.color = 'white';
+      el.style.padding = '0.5rem 1rem';
+      el.style.borderRadius = '4px';
+      el.style.fontSize = '0.875rem';
+      el.textContent = 'SCSS variables copied to clipboard!';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2000);
+    });
+  };
+
   return (
     <div className="color-generator">
       <div className="sidebar">
         <h2>Settings</h2>
         
         {/* Global Controls */}
-        <div className="global-controls">
-          <div className="control-group">
-            <label>
-              Global Steps ({globalSteps})
-              <input
-                type="range"
-                min="2"
-                max="20"
-                value={globalSteps}
-                onChange={(e) => updateGlobalSteps(Number(e.target.value))}
-              />
-            </label>
-          </div>
+        <div className="settings-section">
+          <SettingControl
+            label="Global Steps"
+            value={globalSteps}
+            min={2}
+            max={20}
+            onChange={updateGlobalSteps}
+          />
+          
+          <SettingControl
+            label="Global Saturation"
+            value={globalSaturation ?? 100}
+            min={0}
+            max={100}
+            unit="%"
+            onChange={setGlobalSaturation}
+            onReset={resetGlobalSaturation}
+          />
         </div>
 
         {/* Band Tabs */}
@@ -290,73 +376,103 @@ export default function ColorPaletteGenerator() {
               {band.name}
             </button>
           ))}
-          <button 
-            className="add-band-btn"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={addColorBand}
           >
             +
-          </button>
+          </Button>
         </div>
 
         {/* Active Band Controls */}
         {activeBand && (
-          <div className="band-control">
-            <div className="band-header">
-              <span className="band-title">{activeBand.name}</span>
-              <button
-                onClick={() => removeColorBand(activeBand.id)}
-                className="remove-btn"
-              >
-                Remove
-              </button>
-            </div>
-
-            <div className="control-group">
-              <label>
-                Hue ({activeBand.hue}°)
-                <input
-                  type="range"
-                  min="0"
-                  max="360"
-                  value={activeBand.hue}
-                  onChange={(e) => updateBand(activeBand.id, 'hue', Number(e.target.value))}
+          <>
+            <div className="settings-section">
+              <div className="band-header">
+                <span className="band-title">{activeBand.name}</span>
+                <Button
+                  variant="destructive"
+                  size="xs"
+                  onClick={() => removeColorBand(activeBand.id)}
+                  icon="trash_can_filled_24"
                 />
-              </label>
-            </div>
+              </div>
 
-            <div className="control-group">
-              <label>
-                Saturation ({activeBand.saturation}%)
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={activeBand.saturation}
-                  onChange={(e) => updateBand(activeBand.id, 'saturation', Number(e.target.value))}
+              <SettingControl
+                label="Hue"
+                value={activeBand.hue}
+                min={0}
+                max={360}
+                unit="°"
+                onChange={(value) => updateBand(activeBand.id, 'hue', value)}
+              />
+
+              <SettingControl
+                label="Saturation"
+                value={activeBand.saturation}
+                min={0}
+                max={100}
+                unit="%"
+                onChange={(value) => updateBand(activeBand.id, 'saturation', value)}
+              />
+
+              <div className="curve-editor-container">
+                <h3>Lightness Curve</h3>
+                <CurveEditor
+                  width={200}
+                  height={150}
+                  points={activeBand.curvePoints}
+                  onChange={(newPoints) => handleCurveChange(activeBand.id, newPoints)}
                 />
-              </label>
+              </div>
             </div>
 
-            <div className="curve-editor-container">
-              <h3>Lightness Curve</h3>
-              <CurveEditor
-                width={200}
-                height={150}
-                points={activeBand.curvePoints}
-                onChange={(newPoints) => handleCurveChange(activeBand.id, newPoints)}
+            {/* Separate View Settings Card */}
+            <div className="settings-section">
+              <h2>View Settings</h2>
+              <SettingControl
+                label="Band Height"
+                value={bandHeight}
+                min={60}
+                max={240}
+                unit="px"
+                onChange={setBandHeight}
+              />
+              
+              <SettingControl
+                label="Band Gap"
+                value={bandGap}
+                min={0}
+                max={32}
+                unit="px"
+                onChange={setBandGap}
               />
             </div>
-          </div>
+          </>
         )}
       </div>
 
       <div className="main-content">
-        <h1>Color Palette Generator</h1>
+        <div className="header">
+          <h1>Color Palette Generator</h1>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon="content_copy_24"
+            onClick={handleCopyScss}
+          >
+            Copy SCSS
+          </Button>
+        </div>
         
-        <div className="color-bands">
+        <div className="color-bands" style={{ gap: `${bandGap}px` }}>
           {colorBands.map(band => (
             <div key={band.id} className="band-container">
-              <div className="color-steps">
+              <div 
+                className="color-steps"
+                style={{ height: `${bandHeight}px` }}
+              >
                 <div className="band-title">{band.name}</div>
                 {generateColorSteps(band).map((color, index) => {
                   // Parse the HSL values from the color string

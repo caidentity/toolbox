@@ -1,8 +1,11 @@
 // Button.tsx
 import React, { forwardRef } from 'react';
-import './button.scss';
+import './Button.module.scss';
+import styles from './Button.module.scss';
+import cn from 'classnames';
+import { Icon } from '@glyphkit/glyphkit';
 
-type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'icon';
 type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -10,6 +13,9 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   isLoading?: boolean;
   fullWidth?: boolean;
+  icon?: string;
+  leftIcon?: string;
+  rightIcon?: string;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
@@ -20,18 +26,24 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
   isLoading = false,
   fullWidth = false,
+  icon,
+  leftIcon,
+  rightIcon,
   ...props
 }, ref) => {
-  const buttonClasses = [
-    'button',
-    `button--${size}`,
-    `button--${variant}`,
-    isLoading && 'button--loading',
-    fullWidth && 'button--full-width',
+  const buttonClasses = cn(
+    styles.button,
+    styles[`button--${size}`],
+    styles[`button--${variant}`],
+    {
+      [styles['button--full-width']]: fullWidth,
+      [styles['button--loading']]: isLoading,
+      [styles['button--icon-only']]: (icon || leftIcon || rightIcon) && !children,
+    },
     className
-  ]
-    .filter(Boolean)
-    .join(' ');
+  );
+
+  const iconSize = size === 'lg' ? 24 : size === 'sm' || size === 'xs' ? 16 : 20;
 
   return (
     <button
@@ -40,7 +52,31 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
       disabled={disabled || isLoading}
       {...props}
     >
+      {leftIcon && !isLoading && (
+        <Icon 
+          name={leftIcon}
+          size={iconSize}
+          className={styles.buttonIcon}
+          color="currentColor"
+        />
+      )}
+      {icon && !isLoading && (
+        <Icon 
+          name={icon}
+          size={iconSize}
+          className={styles.buttonIcon}
+          color="currentColor"
+        />
+      )}
       {children}
+      {rightIcon && !isLoading && (
+        <Icon 
+          name={rightIcon}
+          size={iconSize}
+          className={styles.buttonIcon}
+          color='usecurrentcolor'
+        />
+      )}
       {isLoading && (
         <svg
           className="button__spinner"

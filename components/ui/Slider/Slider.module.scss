@@ -1,7 +1,7 @@
 .custom-slider {
     position: relative;
     width: 100%;
-    height: 40px;
+    height: 32px;
     display: flex;
     align-items: center;
     touch-action: none;
@@ -20,22 +20,22 @@
     &__track {
       position: relative;
       width: 100%;
-      height: 8px;
-      background-color: #e2e8f0;
+      height: 4px;
+      background-color: var(--background-secondary);
       border-radius: 9999px;
       overflow: hidden;
       cursor: pointer;
       transition: background-color 0.2s ease;
   
       &:hover {
-        background-color: #cbd5e1;
+        background-color: var(--border-color);
       }
     }
   
     &__range {
       position: absolute;
       height: 100%;
-      background-color: #3b82f6;
+      background-color: var(--accent-color);
       transition: width 0.1s ease-out;
     }
   
@@ -44,8 +44,8 @@
       top: 50%;
       width: 20px;
       height: 20px;
-      background-color: #ffffff;
-      border: 2px solid #3b82f6;
+      background-color: var(--background-primary);
+      border: 2px solid var(--accent-color);
       border-radius: 50%;
       transform: translate(-50%, -50%);
       cursor: grab;
@@ -63,13 +63,13 @@
         cursor: grabbing;
         transform: translate(-50%, -50%) scale(1.15);
         box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
-        border-color: #2563eb;
+        border-color: var(--accent-color);
       }
   
       // Focus styles
       &:focus-visible {
         outline: none;
-        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+        box-shadow: 0 0 0 4px rgba(var(--accent-color), 0.3);
       }
     }
   
