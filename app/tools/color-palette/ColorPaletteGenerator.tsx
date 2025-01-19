@@ -156,6 +156,70 @@ function SettingControl({
   );
 }
 
+// Add these utility functions for better contrast calculations
+const sRGBtoLin = (colorChannel: number): number => {
+  // Convert sRGB color channel to linear RGB
+  const c = colorChannel / 255.0;
+  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+};
+
+const calculateLuminance = (r: number, g: number, b: number): number => {
+  // Calculate relative luminance
+  const rLin = sRGBtoLin(r);
+  const gLin = sRGBtoLin(g);
+  const bLin = sRGBtoLin(b);
+  return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
+};
+
+const calculateContrastRatio = (l1: number, l2: number): number => {
+  // Calculate contrast ratio
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+};
+
+const getContrastTextColor = (h: number, s: number, l: number): string => {
+  // Convert HSL to RGB
+  const c = (1 - Math.abs(2 * l / 100 - 1)) * (s / 100);
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l / 100 - c / 2;
+
+  let r = 0, g = 0, b = 0;
+  
+  if (h < 60) { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+
+  // Convert to RGB values (0-255)
+  const red = Math.round((r + m) * 255);
+  const green = Math.round((g + m) * 255);
+  const blue = Math.round((b + m) * 255);
+
+  // Calculate background luminance
+  const bgLuminance = calculateLuminance(red, green, blue);
+
+  // Test contrast with pure white and pure black
+  const whiteContrast = calculateContrastRatio(1, bgLuminance);
+  const blackContrast = calculateContrastRatio(0, bgLuminance);
+
+  // If neither pure white nor pure black meets 4.5:1, try enhanced contrast colors
+  if (whiteContrast < 4.5 && blackContrast < 4.5) {
+    // Create enhanced contrast colors
+    const enhancedWhite = 'rgba(255, 255, 255, 0.95)';
+    const enhancedBlack = 'rgba(0, 0, 0, 0.95)';
+    // Add subtle text shadow for additional contrast
+    return whiteContrast > blackContrast 
+      ? `${enhancedWhite}; text-shadow: 0 1px 2px rgba(0,0,0,0.5)`
+      : `${enhancedBlack}; text-shadow: 0 1px 2px rgba(255,255,255,0.5)`;
+  }
+
+  // Return the color with better contrast
+  return whiteContrast > blackContrast ? '#ffffff' : '#000000';
+};
+
 export default function ColorPaletteGenerator() {
   const [colorBands, setColorBands] = useState<ColorBand[]>([
     {
@@ -203,6 +267,7 @@ export default function ColorPaletteGenerator() {
   const [globalSaturation, setGlobalSaturation] = useState<number | null>(null)
   const [bandHeight, setBandHeight] = useState(120)
   const [bandGap, setBandGap] = useState(8)
+  const [showAccessibilityText, setShowAccessibilityText] = useState(false)
 
   // Add this utility function for cubic Bézier curve calculation
   const calculateBezierPoint = (t: number, p0: Point, p1: Point, p2: Point, p3: Point) => {
@@ -431,6 +496,19 @@ export default function ColorPaletteGenerator() {
             {/* Separate View Settings Card */}
             <div className="settings-section">
               <h2>View Settings</h2>
+              <div className="control-group">
+                <div className="control-header">
+                  <label>Show Accessibility Text</label>
+                  <Button
+                    variant={showAccessibilityText ? "secondary" : "ghost"}
+                    size="xs"
+                    onClick={() => setShowAccessibilityText(!showAccessibilityText)}
+                  >
+                    {showAccessibilityText ? 'On' : 'Off'}
+                  </Button>
+                </div>
+              </div>
+              
               <SettingControl
                 label="Band Height"
                 value={bandHeight}
@@ -475,7 +553,6 @@ export default function ColorPaletteGenerator() {
               >
                 <div className="band-title">{band.name}</div>
                 {generateColorSteps(band).map((color, index) => {
-                  // Parse the HSL values from the color string
                   const [h, s, l] = color.match(/\d+/g)!.map(Number);
                   const hexColor = hslToHex(h, s, l);
                   
@@ -485,23 +562,35 @@ export default function ColorPaletteGenerator() {
                       className="color-step"
                       style={{ backgroundColor: color }}
                       onClick={() => {
-                        navigator.clipboard.writeText(hexColor).then(() => {
-                          const el = document.createElement('div');
-                          el.style.position = 'fixed';
-                          el.style.top = '1rem';
-                          el.style.left = '50%';
-                          el.style.transform = 'translateX(-50%)';
-                          el.style.background = 'rgba(0, 0, 0, 0.8)';
-                          el.style.color = 'white';
-                          el.style.padding = '0.5rem 1rem';
-                          el.style.borderRadius = '4px';
-                          el.style.fontSize = '0.875rem';
-                          el.textContent = `Copied ${hexColor}`;
-                          document.body.appendChild(el);
-                          setTimeout(() => el.remove(), 2000);
-                        });
+                        navigator.clipboard.writeText(hexColor);
+                        const el = document.createElement('div');
+                        el.style.position = 'fixed';
+                        el.style.top = '1rem';
+                        el.style.left = '50%';
+                        el.style.transform = 'translateX(-50%)';
+                        el.style.background = 'rgba(0, 0, 0, 0.8)';
+                        el.style.color = 'white';
+                        el.style.padding = '0.5rem 1rem';
+                        el.style.borderRadius = '4px';
+                        el.style.fontSize = '0.875rem';
+                        el.textContent = `Copied ${hexColor}`;
+                        document.body.appendChild(el);
+                        setTimeout(() => el.remove(), 2000);
                       }}
                     >
+                      {showAccessibilityText && (
+                        <div 
+                          className="accessibility-text"
+                          style={{ 
+                            color: getContrastTextColor(h, s, l).split(';')[0],
+                            textShadow: getContrastTextColor(h, s, l).includes('text-shadow') 
+                              ? getContrastTextColor(h, s, l).split(';')[1].trim()
+                              : 'none'
+                          }}
+                        >
+                          {band.name}-{index + 1}
+                        </div>
+                      )}
                       <div className="color-info">
                         <span>{hexColor}</span>
                       </div>
