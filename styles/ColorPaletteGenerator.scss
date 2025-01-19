@@ -9,7 +9,7 @@
     top: 0;
     bottom: 0;
     width: 240px;
-    background: #f8f9fa;
+    background: var(--background-secondary);
     padding: 0.75rem;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
@@ -39,11 +39,12 @@
       margin-top: 0.75rem;
 
       .band-control {
-        background: white;
+        background: var(--background-primary);
         padding: 0.75rem;
         border-radius: 6px;
         margin-bottom: 0.5rem;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-color);
 
         .band-header {
           display: flex;
@@ -54,6 +55,7 @@
           .band-title {
             font-weight: 500;
             font-size: 0.875rem;
+            color: var(--text-primary);
           }
 
           .remove-btn {
@@ -77,12 +79,19 @@
             display: block;
             font-size: 0.75rem;
             margin-bottom: 0.25rem;
+            color: var(--text-secondary);
           }
 
           input[type="range"] {
             width: 100%;
             margin-top: 0.25rem;
             height: 4px;
+            background: var(--border-color);
+
+            &::-webkit-slider-thumb {
+              background: var(--accent-color);
+              border: 2px solid var(--background-primary);
+            }
           }
         }
       }
@@ -98,6 +107,7 @@
       font-size: 1.5rem;
       font-weight: 600;
       margin-bottom: 1rem;
+      color: var(--text-primary);
     }
 
     .color-bands {
@@ -110,6 +120,8 @@
           font-weight: 500;
           margin-bottom: 0.25rem;
           font-size: 0.875rem;
+          color: var(--text-primary);
+          background: var(--background-primary);
         }
 
         .color-steps {

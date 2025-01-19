@@ -8,10 +8,11 @@
 
   &__sidebar {
     width: 320px;
-    background: #fff;
+    background: var(--background-primary);
     border-radius: 8px;
     padding: 1rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
   }
 
   &__colors {
@@ -39,15 +40,16 @@
     width: 2rem;
     height: 2rem;
     border-radius: 50%;
-    border: 2px dashed #ccc;
+    border: 2px dashed var(--border-color);
     background: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: var(--text-secondary);
 
     &:hover {
-      border-color: #3b82f6;
+      border-color: var(--accent-color);
     }
   }
 
@@ -60,12 +62,14 @@
   &__input {
     width: 100%;
     padding: 0.5rem;
-    border: 1px solid #ccc;
+    background: var(--background-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
 
     &:focus {
       outline: none;
-      border-color: #3b82f6;
+      border-color: var(--accent-color);
     }
   }
 
@@ -94,14 +98,15 @@
 
     &-tooltip {
       position: absolute;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
+      background: var(--background-secondary);
+      color: var(--text-primary);
       padding: 0.25rem 0.5rem;
       border-radius: 4px;
       font-size: 0.75rem;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s;
+      border: 1px solid var(--border-color);
     }
 
     &:hover .color-palette__swatch-tooltip {

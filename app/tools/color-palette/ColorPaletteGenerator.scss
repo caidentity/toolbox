@@ -9,7 +9,7 @@
       top: 0;
       bottom: 0;
       width: 280px;
-      background: #ffffff;
+      background: var(--background-secondary);
       padding: 16px;
       box-shadow: 1px 0 8px rgba(0, 0, 0, 0.08);
       overflow-y: auto;
@@ -17,15 +17,16 @@
       h2 {
         font-size: 18px;
         font-weight: 600;
-        color: #111827;
+        color: var(--text-primary);
         margin-bottom: 24px;
       }
   
       .global-controls {
-        background: #f9fafb;
+        background: var(--background-primary);
         border-radius: 8px;
         padding: 16px;
         margin-bottom: 24px;
+        border: 1px solid var(--border-color);
       }
   
       .control-group {
@@ -38,14 +39,14 @@
         label {
           display: block;
           font-size: 14px;
-          color: #4b5563;
+          color: var(--text-secondary);
           margin-bottom: 8px;
         }
   
         input[type="range"] {
           width: 100%;
           height: 4px;
-          background: #e5e7eb;
+          background: var(--border-color);
           border-radius: 2px;
   
           &::-webkit-slider-thumb {
@@ -76,18 +77,18 @@
         }
   
         .band-tab {
-          background: #f3f4f6;
-          border: 1px solid #e5e7eb;
-          color: #4b5563;
+          background: var(--background-primary);
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
   
           &:hover {
-            background: #e5e7eb;
+            background: var(--background-secondary);
           }
   
           &.active {
-            background: #3b82f6;
+            background: var(--accent-color);
             color: white;
-            border-color: #2563eb;
+            border-color: var(--accent-color);
           }
         }
   
@@ -104,9 +105,10 @@
       }
   
       .band-control {
-        background: #f9fafb;
+        background: var(--background-primary);
         border-radius: 8px;
         padding: 16px;
+        border: 1px solid var(--border-color);
   
         .band-header {
           display: flex;
@@ -117,7 +119,7 @@
           .band-title {
             font-weight: 500;
             font-size: 14px;
-            color: #111827;
+            color: var(--text-primary);
           }
   
           .remove-btn {
@@ -140,7 +142,7 @@
           h3 {
             font-size: 14px;
             font-weight: 500;
-            color: #4b5563;
+            color: var(--text-secondary);
             margin-bottom: 12px;
           }
         }
@@ -155,7 +157,7 @@
       h1 {
         font-size: 24px;
         font-weight: 600;
-        color: #111827;
+        color: var(--text-primary);
         margin-bottom: 24px;
       }
   
@@ -173,8 +175,8 @@
             left: 8px;
             font-weight: 500;
             font-size: 0.875rem;
-            color: rgba(0, 0, 0, 0.7);
-            background: rgba(255, 255, 255, 0.624);
+            color: var(--text-primary);
+            background: var(--background-primary);
             padding: 4px 8px;
             border-radius: 4px;
             z-index: 1;
