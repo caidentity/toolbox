@@ -1,6 +1,6 @@
 'use client';
 
-import ColorPaletteGenerator from '@/components/ColorPaletteGenerator';
+import ColorPaletteGenerator from '@/app/tools/color-palette/ColorPaletteGenerator';
 
 export default function ColorPalettePage() {
   return <ColorPaletteGenerator />;
