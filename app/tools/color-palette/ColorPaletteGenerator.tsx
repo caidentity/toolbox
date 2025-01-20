@@ -6,6 +6,7 @@ import './ColorPaletteGenerator.scss'
 import { CustomSlider } from '@/components/ui/Slider'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import { Menu } from '@/components/ui/Menu'
 
 interface ColorBand {
   id: number
@@ -273,6 +274,12 @@ function SettingsCard({
   )
 }
 
+// Add this type near the top with other interfaces
+type StepNameFormat = 'numeric' | 'padded' | 'hex' | 'alphabetic';
+
+// Update MenuType to include export options
+type MenuType = 'stepFormat' | 'export';
+
 export default function ColorPaletteGenerator() {
   const [colorBands, setColorBands] = useState<ColorBand[]>([
     {
@@ -323,6 +330,16 @@ export default function ColorPaletteGenerator() {
   const [showAccessibilityText, setShowAccessibilityText] = useState(false)
   const [globalCurvePoints, setGlobalCurvePoints] = useState<Point[] | null>(null)
   const [globalSettingsOpen, setGlobalSettingsOpen] = useState(true)
+  const [bandSettingsOpen, setBandSettingsOpen] = useState(true)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | undefined>(undefined)
+  const [stepFormat, setStepFormat] = useState<StepNameFormat>('numeric')
+
+  // Update state to handle multiple menus
+  const [openMenus, setOpenMenus] = useState<{
+    type: MenuType;
+    anchor: { x: number; y: number };
+  } | null>(null);
 
   // Add this utility function for cubic Bézier curve calculation
   const calculateBezierPoint = (t: number, p0: Point, p1: Point, p2: Point, p3: Point) => {
@@ -455,17 +472,47 @@ export default function ColorPaletteGenerator() {
     return `#${f(0)}${f(8)}${f(4)}`;
   }
 
-  const handleCopyScss = () => {
-    const scss = colorBands.map(band => {
-      const colors = generateColorSteps(band);
-      const safeName = band.name.toLowerCase().replace(/\s+/g, '-');
-      
-      return colors.map((color, index) => {
-        return `$${safeName}-${index + 1}: ${color};`;
-      }).join('\n');
-    }).join('\n\n');
+  const handleCopyFormat = (format: 'scss' | 'css' | 'json') => {
+    let content = '';
+    
+    switch (format) {
+      case 'scss':
+        content = colorBands.map(band => {
+          const colors = generateColorSteps(band);
+          const safeName = band.name.toLowerCase().replace(/\s+/g, '-');
+          return colors.map((color, index) => {
+            return `$${safeName}-${formatStepNumber(index)}: ${color};`;
+          }).join('\n');
+        }).join('\n\n');
+        break;
 
-    navigator.clipboard.writeText(scss).then(() => {
+      case 'css':
+        content = `:root {\n${colorBands.map(band => {
+          const colors = generateColorSteps(band);
+          const safeName = band.name.toLowerCase().replace(/\s+/g, '-');
+          return colors.map((color, index) => {
+            return `  --${safeName}-${formatStepNumber(index)}: ${color};`;
+          }).join('\n');
+        }).join('\n')}\n}`;
+        break;
+
+      case 'json':
+        const jsonObj = colorBands.reduce((acc, band) => {
+          const colors = generateColorSteps(band);
+          const safeName = band.name.toLowerCase().replace(/\s+/g, '-');
+          const bandColors = colors.reduce((colorAcc, color, index) => {
+            colorAcc[`${safeName}-${formatStepNumber(index)}`] = color;
+            return colorAcc;
+          }, {} as Record<string, string>);
+          return { ...acc, ...bandColors };
+        }, {});
+        content = JSON.stringify(jsonObj, null, 2);
+        break;
+    }
+
+    navigator.clipboard.writeText(content).then(() => {
+      handleMenuClose();
+      // Show toast notification
       const el = document.createElement('div');
       el.style.position = 'fixed';
       el.style.top = '1rem';
@@ -476,15 +523,53 @@ export default function ColorPaletteGenerator() {
       el.style.padding = '0.5rem 1rem';
       el.style.borderRadius = '4px';
       el.style.fontSize = '0.875rem';
-      el.textContent = 'SCSS variables copied to clipboard!';
+      el.textContent = `${format.toUpperCase()} copied to clipboard!`;
       document.body.appendChild(el);
       setTimeout(() => el.remove(), 2000);
     });
   };
 
+  const handleMenuOpen = (type: MenuType) => (event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent event bubbling
+    const rect = event.currentTarget.getBoundingClientRect();
+    setOpenMenus({
+      type,
+      anchor: {
+        x: rect.left,
+        y: rect.bottom
+      }
+    });
+  };
+
+  const handleMenuClose = () => {
+    setOpenMenus(null);
+  };
+
+  // Add this helper function to format step numbers
+  const formatStepNumber = (index: number): string => {
+    switch (stepFormat) {
+      case 'padded':
+        return String(index + 1).padStart(3, '0'); // 001, 002, etc.
+      case 'hex':
+        return (index + 1).toString(16).toUpperCase(); // 1, 2, ..., A, B, etc.
+      case 'alphabetic':
+        return String.fromCharCode(97 + index).toUpperCase(); // A, B, C, etc.
+      case 'numeric':
+      default:
+        return String(index + 1); // 1, 2, 3, etc.
+    }
+  }
+
+  // Add this handler for the format menu
+  const handleStepFormatChange = (format: StepNameFormat) => {
+    setStepFormat(format);
+    setIsMenuOpen(false);
+  };
+
   return (
     <div className="color-generator">
       <div className="sidebar">
+      <h2>Pallete Generator</h2>
         <div className="settings-card">
           <div className="settings-card-header">
             <div className="settings-card-toggle" onClick={() => setGlobalSettingsOpen(!globalSettingsOpen)}>
@@ -527,6 +612,49 @@ export default function ColorPaletteGenerator() {
               onChange={setGlobalSaturation}
               onReset={resetGlobalSaturation}
             />
+            
+            <div style={{ position: 'relative' }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon="format_list_numbered_24"
+                rightIcon="chevron_down_24"
+                onClick={handleMenuOpen('stepFormat')}
+              >
+                Step Format: {stepFormat}
+              </Button>
+              <Menu
+                isOpen={openMenus?.type === 'stepFormat'}
+                onClose={handleMenuClose}
+                anchorPoint={openMenus?.type === 'stepFormat' ? openMenus.anchor : undefined}
+                items={[
+                  {
+                    type: 'default',
+                    label: 'Numeric (1, 2, 3)',
+                    onClick: () => handleStepFormatChange('numeric'),
+                    leftIcon: stepFormat === 'numeric' ? 'check_24' : undefined,
+                  },
+                  {
+                    type: 'default',
+                    label: 'Padded (001, 002, 003)',
+                    onClick: () => handleStepFormatChange('padded'),
+                    leftIcon: stepFormat === 'padded' ? 'check_24' : undefined,
+                  },
+                  {
+                    type: 'default',
+                    label: 'Hexadecimal (1, 2, ..., A, B)',
+                    onClick: () => handleStepFormatChange('hex'),
+                    leftIcon: stepFormat === 'hex' ? 'check_24' : undefined,
+                  },
+                  {
+                    type: 'default',
+                    label: 'Alphabetic (A, B, C)',
+                    onClick: () => handleStepFormatChange('alphabetic'),
+                    leftIcon: stepFormat === 'alphabetic' ? 'check_24' : undefined,
+                  },
+                ]}
+              />
+            </div>
 
             <div className="control-group">
               <div className="control-header">
@@ -578,45 +706,70 @@ export default function ColorPaletteGenerator() {
         </div>
 
         {activeBand && (
-          <SettingsCard title={`${activeBand.name} Settings`}>
-            <div className="band-header">
-              <span className="band-title">{activeBand.name}</span>
-              <Button
-                variant="destructive"
-                size="xs"
-                onClick={() => removeColorBand(activeBand.id)}
-                icon="trash_can_filled_24"
-              />
+          <div className="settings-card">
+            <div className="settings-card-header">
+              <div 
+                className="settings-card-toggle"
+                onClick={() => setBandSettingsOpen(!bandSettingsOpen)}
+              >
+                <h2>{activeBand.name} Settings</h2>
+                <div className="settings-card-controls">
+                  <Button
+                    variant="destructive"
+                    size="xs"
+                    onClick={() => removeColorBand(activeBand.id)}
+                  >
+                    Remove
+                  </Button>
+                  <svg 
+                    className={cn('settings-card-chevron', bandSettingsOpen && 'rotate')}
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2"
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
+              </div>
             </div>
-
-            <SettingControl
-              label="Hue"
-              value={activeBand.hue}
-              min={0}
-              max={360}
-              unit="°"
-              onChange={(value) => updateBand(activeBand.id, 'hue', value)}
-            />
-
-            <SettingControl
-              label="Saturation"
-              value={activeBand.saturation}
-              min={0}
-              max={100}
-              unit="%"
-              onChange={(value) => updateBand(activeBand.id, 'saturation', value)}
-            />
-
-            <div className="curve-editor-container">
-              <label>Lightness Curve</label>
-              <CurveEditor
-                width={200}
-                height={150}
-                points={activeBand.curvePoints}
-                onChange={(newPoints) => handleCurveChange(activeBand.id, newPoints)}
+            <div className={cn(
+              'settings-card-content',
+              bandSettingsOpen ? 'settings-card-open' : 'settings-card-closed'
+            )}>
+              <SettingControl
+                label="Hue"
+                value={activeBand.hue}
+                min={0}
+                max={360}
+                unit="°"
+                onChange={(value) => updateBand(activeBand.id, 'hue', value)}
               />
+
+              <SettingControl
+                label="Saturation"
+                value={activeBand.saturation}
+                min={0}
+                max={100}
+                unit="%"
+                onChange={(value) => updateBand(activeBand.id, 'saturation', value)}
+              />
+
+              <div className="curve-editor-container">
+                <label>Lightness Curve</label>
+                <CurveEditor
+                  width={200}
+                  height={150}
+                  points={activeBand.curvePoints}
+                  onChange={(newPoints) => handleCurveChange(activeBand.id, newPoints)}
+                />
+              </div>
             </div>
-          </SettingsCard>
+          </div>
         )}
 
         <SettingsCard title="View Settings" defaultOpen={false}>
@@ -655,15 +808,42 @@ export default function ColorPaletteGenerator() {
 
       <div className="main-content">
         <div className="header">
-          <h1>Color Palette Generator</h1>
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon="content_copy_24"
-            onClick={handleCopyScss}
-          >
-            Copy SCSS
-          </Button>
+          <div style={{ position: 'relative' }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon="content_copy_24"
+              rightIcon="chevron_down_24"
+              onClick={handleMenuOpen('export')}
+            >
+              Export
+            </Button>
+            <Menu
+              isOpen={openMenus?.type === 'export'}
+              onClose={handleMenuClose}
+              anchorPoint={openMenus?.type === 'export' ? openMenus.anchor : undefined}
+              items={[
+                {
+                  type: 'default',
+                  label: 'Copy as SCSS',
+                  onClick: () => handleCopyFormat('scss'),
+                  leftIcon: 'content_copy_24'
+                },
+                {
+                  type: 'default',
+                  label: 'Copy as CSS',
+                  onClick: () => handleCopyFormat('css'),
+                  leftIcon: 'content_copy_24'
+                },
+                {
+                  type: 'default',
+                  label: 'Copy as JSON',
+                  onClick: () => handleCopyFormat('json'),
+                  leftIcon: 'content_copy_24'
+                }
+              ]}
+            />
+          </div>
         </div>
         
         <div className="color-bands" style={{ gap: `${bandGap}px` }}>
@@ -710,7 +890,7 @@ export default function ColorPaletteGenerator() {
                               : 'none'
                           }}
                         >
-                          {band.name}-{index + 1}
+                          {band.name}-{formatStepNumber(index)}
                         </div>
                       )}
                       <div className="color-info">
