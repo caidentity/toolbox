@@ -15,6 +15,7 @@ interface ColorBand {
   steps: number
   curvePoints: Point[]
   name: string
+  curveModified?: boolean
 }
 
 interface Point {
@@ -226,50 +227,39 @@ interface SettingsCardProps {
   defaultOpen?: boolean
   children: React.ReactNode
   className?: string
-  headerAction?: React.ReactNode
 }
 
 function SettingsCard({ 
   title, 
   defaultOpen = true, 
   children,
-  className,
-  headerAction 
+  className 
 }: SettingsCardProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
     <div className={cn('settings-card', className)}>
-      <div className="settings-card-header">
-        <button
-          className="settings-card-toggle"
-          onClick={() => setIsOpen(!isOpen)}
+      <div
+        className="settings-card-header"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <h2>{title}</h2>
+        <svg 
+          className={cn(
+            'settings-card-chevron',
+            isOpen && 'rotate'
+          )}
+          width="16" 
+          height="16" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2"
+          strokeLinecap="round" 
+          strokeLinejoin="round"
         >
-          <h2>{title}</h2>
-          <div className="settings-card-controls">
-            <svg 
-              className={cn(
-                'settings-card-chevron',
-                isOpen && 'rotate'
-              )}
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2"
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-        </button>
-        {headerAction && (
-          <div className="settings-card-action">
-            {headerAction}
-          </div>
-        )}
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
       </div>
       <div
         className={cn(
@@ -331,6 +321,8 @@ export default function ColorPaletteGenerator() {
   const [bandHeight, setBandHeight] = useState(120)
   const [bandGap, setBandGap] = useState(8)
   const [showAccessibilityText, setShowAccessibilityText] = useState(false)
+  const [globalCurvePoints, setGlobalCurvePoints] = useState<Point[] | null>(null)
+  const [globalSettingsOpen, setGlobalSettingsOpen] = useState(true)
 
   // Add this utility function for cubic Bézier curve calculation
   const calculateBezierPoint = (t: number, p0: Point, p1: Point, p2: Point, p3: Point) => {
@@ -356,37 +348,34 @@ export default function ColorPaletteGenerator() {
   const generateColorSteps = (band: ColorBand) => {
     return Array.from({ length: band.steps }, (_, i) => {
       const t = i / (band.steps - 1)
+      // Use band's curve points if they've been modified, otherwise use global curve
+      const useGlobalCurve = globalCurvePoints && !band.curveModified
+      const curvePoints = useGlobalCurve ? globalCurvePoints : band.curvePoints
       const point = calculateBezierPoint(
         t,
-        band.curvePoints[0],
-        band.curvePoints[1],
-        band.curvePoints[2],
-        band.curvePoints[3]
+        curvePoints[0],
+        curvePoints[1],
+        curvePoints[2],
+        curvePoints[3]
       )
       
-      // Enhanced curve sensitivity mapping
-      // Apply a non-linear transformation to increase sensitivity
+      // Keep all existing color calculation logic unchanged
       const normalizedY = point.y / 150
-      const curveInfluence = Math.pow(normalizedY, 1.5) // Adjust power for different curve response
+      const curveInfluence = Math.pow(normalizedY, 1.5)
       const lightness = Math.max(5, Math.min(100, (1 - curveInfluence) * 100))
       
-      // Use global saturation if set, otherwise use band saturation
       const baseSaturation = globalSaturation !== null ? globalSaturation : band.saturation
       
-      // Enhanced dynamic saturation adjustment
       let adjustedSaturation = baseSaturation
       if (lightness < 30) {
-        // More aggressive saturation boost for darker colors
-        const darkBoost = 1 + (0.5 * (1 - lightness / 30)) // Up to 50% boost at darkest
+        const darkBoost = 1 + (0.5 * (1 - lightness / 30))
         adjustedSaturation = Math.min(100, baseSaturation * darkBoost)
       } else if (lightness > 85) {
-        // Smoother saturation reduction for light colors
-        const reductionFactor = 1 - ((lightness - 85) / 15) * 0.4 // 40% reduction at max
+        const reductionFactor = 1 - ((lightness - 85) / 15) * 0.4
         adjustedSaturation = baseSaturation * reductionFactor
       }
       
-      // Apply additional color preservation for dark colors
-      const minLightness = Math.max(5, (adjustedSaturation * 0.1)) // Higher saturation = slightly higher min lightness
+      const minLightness = Math.max(5, (adjustedSaturation * 0.1))
       const finalLightness = Math.max(minLightness, lightness)
       
       return `hsl(${band.hue}, ${adjustedSaturation}%, ${finalLightness}%)`
@@ -434,7 +423,9 @@ export default function ColorPaletteGenerator() {
 
   const handleCurveChange = (bandId: number, newPoints: Point[]) => {
     setColorBands(colorBands.map(band => 
-      band.id === bandId ? { ...band, curvePoints: newPoints } : band
+      band.id === bandId 
+        ? { ...band, curvePoints: newPoints, curveModified: true } 
+        : band
     ))
   }
 
@@ -494,25 +485,78 @@ export default function ColorPaletteGenerator() {
   return (
     <div className="color-generator">
       <div className="sidebar">
-        <SettingsCard title="Global Settings">
-          <SettingControl
-            label="Global Steps"
-            value={globalSteps}
-            min={2}
-            max={20}
-            onChange={updateGlobalSteps}
-          />
-          
-          <SettingControl
-            label="Global Saturation"
-            value={globalSaturation ?? 100}
-            min={0}
-            max={100}
-            unit="%"
-            onChange={setGlobalSaturation}
-            onReset={resetGlobalSaturation}
-          />
-        </SettingsCard>
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <div className="settings-card-toggle" onClick={() => setGlobalSettingsOpen(!globalSettingsOpen)}>
+              <h2>Global Settings</h2>
+              <div className="settings-card-controls">
+                <svg 
+                  className={cn('settings-card-chevron', globalSettingsOpen && 'rotate')}
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div className={cn(
+            'settings-card-content',
+            globalSettingsOpen ? 'settings-card-open' : 'settings-card-closed'
+          )}>
+            <SettingControl
+              label="Global Steps"
+              value={globalSteps}
+              min={2}
+              max={20}
+              onChange={updateGlobalSteps}
+            />
+            
+            <SettingControl
+              label="Global Saturation"
+              value={globalSaturation ?? 100}
+              min={0}
+              max={100}
+              unit="%"
+              onChange={setGlobalSaturation}
+              onReset={resetGlobalSaturation}
+            />
+
+            <div className="control-group">
+              <div className="control-header">
+                <label>Global Lightness Curve</label>
+                {globalCurvePoints && (
+                  <div className="value-controls">
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => setGlobalCurvePoints(null)}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <CurveEditor
+                width={200}
+                height={150}
+                points={globalCurvePoints || [
+                  { x: 0, y: 150 },
+                  { x: 66, y: 100 },
+                  { x: 133, y: 50 },
+                  { x: 200, y: 0 }
+                ]}
+                onChange={setGlobalCurvePoints}
+              />
+            </div>
+          </div>
+        </div>
 
         <div className="band-tabs">
           {colorBands.map(band => (
@@ -534,17 +578,17 @@ export default function ColorPaletteGenerator() {
         </div>
 
         {activeBand && (
-          <SettingsCard 
-            title={activeBand.name}
-            headerAction={
+          <SettingsCard title={`${activeBand.name} Settings`}>
+            <div className="band-header">
+              <span className="band-title">{activeBand.name}</span>
               <Button
                 variant="destructive"
                 size="xs"
                 onClick={() => removeColorBand(activeBand.id)}
                 icon="trash_can_filled_24"
               />
-            }
-          >
+            </div>
+
             <SettingControl
               label="Hue"
               value={activeBand.hue}
@@ -564,7 +608,7 @@ export default function ColorPaletteGenerator() {
             />
 
             <div className="curve-editor-container">
-              <h3>Lightness Curve</h3>
+              <label>Lightness Curve</label>
               <CurveEditor
                 width={200}
                 height={150}
@@ -575,10 +619,7 @@ export default function ColorPaletteGenerator() {
           </SettingsCard>
         )}
 
-        <SettingsCard 
-          title="View Settings" 
-          defaultOpen={false}
-        >
+        <SettingsCard title="View Settings" defaultOpen={false}>
           <div className="control-group">
             <div className="control-header">
               <label>Show Accessibility Text</label>
