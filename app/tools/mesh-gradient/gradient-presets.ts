@@ -94,5 +94,75 @@ export const gradientPresets: GradientPreset[] = [
       { x: 0.8, y: 1.0, color: parseHSL("hsla(242, 100%, 70%, 1)"), intensity: 1.2, bend: 3.0, elongation: 1.21, rotation: 0, sBend: 0 },
       { x: 0.0, y: 0.0, color: parseHSL("hsla(343, 100%, 76%, 1)"), intensity: 1.0, bend: 2.5, elongation: 0.5, rotation: 0, sBend: 0 }
     ]
+  },
+  {
+    name: "Orange Glow",
+    points: [
+      { 
+        x: 0.8, 
+        y: 0.2, 
+        color: hslToHex(18, 100, 50), 
+        intensity: 1.0, 
+        bend: 2.5, 
+        elongation: 2.0,
+        rotation: 0,
+        sBend: 0 
+      },
+      { 
+        x: 0.22, 
+        y: 0.8, 
+        color: parseHSL("hsla(304, 100%, 65%, 1)"), 
+        intensity: 1.0, 
+        bend: 2.5, 
+        elongation: 2.0,
+        rotation: 0,
+        sBend: 0 
+      },
+      { 
+        x: 0.47, 
+        y: 0.08, 
+        color: hslToHex(0, 100, 65), 
+        intensity: 0.1, 
+        bend: 2.0, 
+        elongation: 0.2,
+        rotation: 0,
+        sBend: 0 
+      }
+    ]
+  },
+  {
+    name: "Neon Blend",
+    points: [
+      { 
+        x: 0.8, 
+        y: 0.88, 
+        color: parseHSL("hsla(64, 100%, 65%, 1)"), 
+        intensity: 1.2, 
+        bend: 2.5, 
+        elongation: 1.3,
+        rotation: 0,
+        sBend: 0 
+      },
+      { 
+        x: 0.8, 
+        y: 0.2, 
+        color: parseHSL("hsla(304, 100%, 65%, 1)"), 
+        intensity: 1.1, 
+        bend: 2.8, 
+        elongation: 1.4,
+        rotation: 0,
+        sBend: 0 
+      },
+      { 
+        x: 0.5, 
+        y: 0.8, 
+        color: parseHSL("hsla(184, 100%, 65%, 1)"), 
+        intensity: 1.0, 
+        bend: 2.5, 
+        elongation: 1.2,
+        rotation: 0,
+        sBend: 0 
+      }
+    ]
   }
 ]; 

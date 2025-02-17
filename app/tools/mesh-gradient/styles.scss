@@ -200,6 +200,7 @@
         height: 100%;
         top: 0;
         left: 0;
+        pointer-events: auto;
       }
       
       .points-overlay {
@@ -209,14 +210,15 @@
         width: 100%;
         height: 100%;
         pointer-events: none;
+        z-index: 1;
       }
     }
   }
 
   .mesh-gradient-point-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     margin-bottom: 1rem;
 
     .point-card {
@@ -226,6 +228,10 @@
       overflow: hidden;
       cursor: pointer;
       transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      gap: 0.5rem;
 
       &:hover {
         border-color: var(--primary);
@@ -237,15 +243,17 @@
       }
 
       .point-preview {
-        height: 60px;
-        width: 100%;
+        height: 24px;
+        width: 24px;
+        border-radius: 4px;
+        flex-shrink: 0;
       }
 
       .point-info {
-        padding: 0.5rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex: 1;
         gap: 0.25rem;
 
         .point-name {
@@ -255,6 +263,10 @@
 
         .remove-point {
           opacity: 0.5;
+          padding: 4px;
+          height: 24px;
+          width: 24px;
+          
           &:hover {
             opacity: 1;
             color: var(--destructive);
@@ -267,12 +279,9 @@
       background: var(--background);
       border: 1px dashed var(--border-color);
       border-radius: 6px;
-      height: 100%;
-      min-height: 100px;
+      padding: 0.5rem;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: center;
       gap: 0.5rem;
       cursor: pointer;
       color: var(--muted-foreground);
@@ -404,13 +413,31 @@
   width: 24px;
   height: 24px;
   transform: translate(-50%, -50%);
-  pointer-events: none;
+  cursor: grab;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
   
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%) scale(1.1);
+    
+    &::before, &::after {
+      background: rgba(255, 255, 255, 1);
+    }
+  }
+  
+  &:active {
+    cursor: grabbing;
+    transform: translate(-50%, -50%) scale(0.95) !important;
+  }
+
   &::before, &::after {
     content: '';
     position: absolute;
     background: rgba(255, 255, 255, 0.9);
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
   }
 
   // Vertical line
@@ -441,5 +468,16 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
+    transition: all 0.2s ease;
   }
+}
+
+.points-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  z-index: 1;
 } 

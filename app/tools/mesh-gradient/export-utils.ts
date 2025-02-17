@@ -35,6 +35,7 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
     h /= 6;
   }
 
+  // Return precise values without rounding
   return {
     h: Math.round(h * 360),
     s: Math.round(s * 100),
@@ -53,21 +54,21 @@ export function generateCSSGradient(points: GradientPoint[]) {
   // Generate radial gradients for each point
   const gradients = sortedPoints.map((point) => {
     const hsl = hexToHSL(point.color);
+    // Format position as percentage
     const x = Math.round(point.x * 100);
     const y = Math.round(point.y * 100);
     
-    // Calculate radius based on intensity and elongation
-    const radius = Math.round(100 * point.elongation * point.intensity);
-    const opacity = Math.min(point.intensity, 1);
-
-    // Create the gradient with standard CSS syntax
-    return `radial-gradient(at ${x}% ${y}%, hsla(${hsl.h},${hsl.s}%,${hsl.l}%,${opacity}) 0px, transparent ${radius}%)`;
+    // Calculate radius based on intensity
+    const radius = Math.round(50 * point.intensity); // Use 50% as base radius
+    
+    // Format as standard CSS radial gradient
+    return `radial-gradient(at ${x}% ${y}%, hsla(${hsl.h},${hsl.s}%,${hsl.l}%,${point.intensity}) 0px, transparent ${radius}%)`;
   }).join(',\n');
 
   // Get base color from most intense point
   const baseColor = hexToHSL(sortedPoints[0].color);
 
-  // Format the final CSS
+  // Format exactly like the example
   return `background-color: hsla(${baseColor.h},${baseColor.s}%,${baseColor.l}%,1);
 background-image: 
 ${gradients};
