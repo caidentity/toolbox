@@ -341,6 +341,11 @@ export default function ColorPaletteGenerator() {
     anchor: { x: number; y: number };
   } | null>(null);
 
+  // Add new state for editing name
+  const [editingBandId, setEditingBandId] = useState<number | null>(null);
+  // Add new state for temporary name editing
+  const [editingName, setEditingName] = useState("");
+
   // Add this utility function for cubic Bézier curve calculation
   const calculateBezierPoint = (t: number, p0: Point, p1: Point, p2: Point, p3: Point) => {
     const oneMinusT = 1 - t
@@ -566,6 +571,19 @@ export default function ColorPaletteGenerator() {
     setIsMenuOpen(false);
   };
 
+  // Separate the name update into temporary state and final save
+  const startEditing = (band: ColorBand) => {
+    setEditingBandId(band.id);
+    setEditingName(band.name);
+  };
+
+  const saveBandName = (id: number) => {
+    setColorBands(colorBands.map(band => 
+      band.id === id ? { ...band, name: editingName } : band
+    ));
+    setEditingBandId(null);
+  };
+
   return (
     <div className="color-generator">
       <div className="sidebar">
@@ -688,13 +706,58 @@ export default function ColorPaletteGenerator() {
 
         <div className="band-tabs">
           {colorBands.map(band => (
-            <button
+            <div
               key={band.id}
               className={`band-tab ${activeTab === band.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(band.id)}
             >
-              {band.name}
-            </button>
+              {editingBandId === band.id ? (
+                <input
+                  type="text"
+                  value={editingName}
+                  className="band-name-input"
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onBlur={() => saveBandName(band.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      saveBandName(band.id);
+                    } else if (e.key === 'Escape') {
+                      setEditingBandId(null);
+                    }
+                  }}
+                />
+              ) : (
+                <div 
+                  className="band-tab-content"
+                  onClick={() => setActiveTab(band.id)}
+                >
+                  <span>{band.name}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="edit-name-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditing(band);
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                    </svg>
+                  </Button>
+                </div>
+              )}
+            </div>
           ))}
           <Button
             variant="ghost"
