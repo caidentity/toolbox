@@ -7,14 +7,16 @@ import './styles.scss';
 
 export default function MeshGradientEditor() {
   const [points, setPoints] = useState([
-    { x: 0.25, y: 0.25, color: '#ff0000', intensity: 1.0, bend: 1.0 },
-    { x: 0.75, y: 0.75, color: '#0000ff', intensity: 1.0, bend: 1.0 }
+    { x: 0.25, y: 0.25, color: '#ff0000', intensity: 1.0, bend: 3.0, elongation: 1.0 },
+    { x: 0.75, y: 0.75, color: '#0000ff', intensity: 1.0, bend: 3.0, elongation: 1.0 }
   ]);
-  const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<number | null>(0);
   const [isDragging, setIsDragging] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);
+  const [hoverPoint, setHoverPoint] = useState<number | null>(null);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
 
   const initWebGL = () => {
     if (!canvasRef.current) return;
@@ -109,6 +111,7 @@ export default function MeshGradientEditor() {
     const pointsLocation = gl.getUniformLocation(program, 'points');
     const intensitiesLocation = gl.getUniformLocation(program, 'intensities');
     const bendFactorsLocation = gl.getUniformLocation(program, 'bendFactors');
+    const elongationsLocation = gl.getUniformLocation(program, 'elongations');
     const numPointsLocation = gl.getUniformLocation(program, 'numPoints');
 
     // Set resolution
@@ -137,28 +140,122 @@ export default function MeshGradientEditor() {
 
     const intensitiesData = new Float32Array(points.map(p => p.intensity));
     const bendFactorsData = new Float32Array(points.map(p => p.bend));
+    const elongationsData = new Float32Array(points.map(p => p.elongation));
 
     // Set uniforms
     gl.uniform4fv(pointsLocation, pointsData);
     gl.uniform1fv(intensitiesLocation, intensitiesData);
     gl.uniform1fv(bendFactorsLocation, bendFactorsData);
+    gl.uniform1fv(elongationsLocation, elongationsData);
     gl.uniform1i(numPointsLocation, points.length);
 
     // Draw
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
 
+  const drawControlPoints = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw each control point
+    points.forEach((point, index) => {
+      const x = point.x * canvas.width;
+      const y = point.y * canvas.height;
+      
+      // Draw origin point indicator (crosshair)
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y);
+      ctx.lineTo(x + 6, y);
+      ctx.moveTo(x, y - 6);
+      ctx.lineTo(x, y + 6);
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // Outer circle (white background)
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.stroke();
+      
+      // Inner circle (point color)
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = point.color;
+      ctx.fill();
+      
+      // Highlight for selected/hovered point
+      if (index === selectedPoint || index === hoverPoint) {
+        // Outer highlight ring
+        ctx.beginPath();
+        ctx.arc(x, y, 14, 0, Math.PI * 2);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Inner highlight ring
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Draw point index
+      ctx.fillStyle = 'white';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${index + 1}`, x, y);
+    });
+
+    // Draw cursor indicator when not over a point and not dragging
+    if (hoverPoint === null && !isDragging) {
+      const x = lastMousePos.x * canvas.width;
+      const y = lastMousePos.y * canvas.height;
+      
+      // Crosshair
+      ctx.beginPath();
+      ctx.moveTo(x - 12, y);
+      ctx.lineTo(x + 12, y);
+      ctx.moveTo(x, y - 12);
+      ctx.lineTo(x, y + 12);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      // Potential new point indicator
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  };
+
   // Initialize WebGL when component mounts
   useEffect(() => {
     if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      
       // Set canvas size to match display size
-      const displayWidth = canvasRef.current.clientWidth;
-      const displayHeight = canvasRef.current.clientHeight;
-      canvasRef.current.width = displayWidth;
-      canvasRef.current.height = displayHeight;
+      canvas.width = rect.width;
+      canvas.height = rect.height;
       
       initWebGL();
       drawGradient();
+      drawControlPoints();
     }
   }, []);
 
@@ -171,39 +268,41 @@ export default function MeshGradientEditor() {
   useEffect(() => {
     const handleResize = () => {
       if (canvasRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        canvasRef.current.width = rect.width;
-        canvasRef.current.height = rect.height;
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
         drawGradient();
+        drawControlPoints();
       }
     };
 
-    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    // Select first point by default when component mounts
+    setSelectedPoint(0);
+  }, []);
+
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
+    
     const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
 
-    const clickedPointIndex = points.findIndex(point => {
-      const dx = point.x - x;
-      const dy = point.y - y;
-      return Math.sqrt(dx * dx + dy * dy) < 0.05;
-    });
-
-    if (clickedPointIndex !== -1) {
-      setSelectedPoint(clickedPointIndex);
+    if (hoverPoint !== null) {
+      setSelectedPoint(hoverPoint);
     } else if (!isDragging && points.length < 32) {
       const newPoint = {
         x,
         y,
         color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
         intensity: 1.0,
-        bend: 1.0
+        bend: 3.0,
+        elongation: 1.0
       };
       setPoints([...points, newPoint]);
       setSelectedPoint(points.length);
@@ -219,15 +318,34 @@ export default function MeshGradientEditor() {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !isDragging || selectedPoint === null) return;
-    
+    if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
+    
+    // Get precise cursor position relative to canvas
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
+    setLastMousePos({ x, y });
 
-    const newPoints = [...points];
-    newPoints[selectedPoint] = { ...newPoints[selectedPoint], x, y };
-    setPoints(newPoints);
+    // More precise hit detection
+    const hoveredIndex = points.findIndex(point => {
+      const dx = point.x - x;
+      const dy = point.y - y;
+      return Math.sqrt(dx * dx + dy * dy) < 0.02;
+    });
+    
+    setHoverPoint(hoveredIndex === -1 ? null : hoveredIndex);
+
+    // Update point position to exact cursor location
+    if (isDragging && selectedPoint !== null) {
+      const newPoints = [...points];
+      newPoints[selectedPoint] = {
+        ...newPoints[selectedPoint],
+        x,
+        y
+      };
+      setPoints(newPoints);
+      drawControlPoints();
+    }
   };
 
   return (
@@ -249,7 +367,8 @@ export default function MeshGradientEditor() {
                     y: 0.5,
                     color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
                     intensity: 1.0,
-                    bend: 1.0
+                    bend: 3.0,
+                    elongation: 1.0
                   };
                   setPoints([...points, newPoint]);
                   setSelectedPoint(points.length);
@@ -264,10 +383,10 @@ export default function MeshGradientEditor() {
               onClick={() => {
                 if (selectedPoint !== null && points.length > 2) {
                   setPoints(points.filter((_, index) => index !== selectedPoint));
-                  setSelectedPoint(null);
+                  setSelectedPoint(0);
                 }
               }}
-              disabled={selectedPoint === null || points.length <= 2}
+              disabled={points.length <= 2}
             >
               <Minus className="w-4 h-4" /> Remove
             </button>
@@ -315,9 +434,45 @@ export default function MeshGradientEditor() {
               </div>
 
               <div className="control-group">
-                <label>
-                  Intensity: {points[selectedPoint].intensity.toFixed(1)}
-                </label>
+                <label>X Position: {(points[selectedPoint].x * 100).toFixed(1)}%</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={points[selectedPoint].x}
+                  onChange={(e) => {
+                    const newPoints = [...points];
+                    newPoints[selectedPoint] = {
+                      ...newPoints[selectedPoint],
+                      x: parseFloat(e.target.value)
+                    };
+                    setPoints(newPoints);
+                  }}
+                />
+              </div>
+
+              <div className="control-group">
+                <label>Y Position: {(points[selectedPoint].y * 100).toFixed(1)}%</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={points[selectedPoint].y}
+                  onChange={(e) => {
+                    const newPoints = [...points];
+                    newPoints[selectedPoint] = {
+                      ...newPoints[selectedPoint],
+                      y: parseFloat(e.target.value)
+                    };
+                    setPoints(newPoints);
+                  }}
+                />
+              </div>
+
+              <div className="control-group">
+                <label>Intensity: {points[selectedPoint].intensity.toFixed(1)}</label>
                 <input
                   type="range"
                   min="0.1"
@@ -336,13 +491,11 @@ export default function MeshGradientEditor() {
               </div>
 
               <div className="control-group">
-                <label>
-                  Bend Factor: {points[selectedPoint].bend.toFixed(1)}
-                </label>
+                <label>Bend Factor: {points[selectedPoint].bend.toFixed(1)}</label>
                 <input
                   type="range"
                   min="0.1"
-                  max="3.0"
+                  max="6.0"
                   step="0.1"
                   value={points[selectedPoint].bend}
                   onChange={(e) => {
@@ -350,6 +503,25 @@ export default function MeshGradientEditor() {
                     newPoints[selectedPoint] = {
                       ...newPoints[selectedPoint],
                       bend: parseFloat(e.target.value)
+                    };
+                    setPoints(newPoints);
+                  }}
+                />
+              </div>
+
+              <div className="control-group">
+                <label>Elongation: {points[selectedPoint].elongation.toFixed(1)}</label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="4.0"
+                  step="0.1"
+                  value={points[selectedPoint].elongation}
+                  onChange={(e) => {
+                    const newPoints = [...points];
+                    newPoints[selectedPoint] = {
+                      ...newPoints[selectedPoint],
+                      elongation: parseFloat(e.target.value)
                     };
                     setPoints(newPoints);
                   }}

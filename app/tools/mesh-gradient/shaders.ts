@@ -13,10 +13,14 @@ export const fragmentShaderSource = `
   uniform vec4 points[32];  // xy = position, zw = color (r,g)
   uniform float intensities[32];
   uniform float bendFactors[32];
+  uniform float elongations[32];
   uniform int numPoints;
 
-  float getDistance(vec2 p1, vec2 p2) {
-    return sqrt(pow(p1.x - p2.x, 2.0) + pow(p1.y - p2.y, 2.0));
+  float getDistance(vec2 p1, vec2 p2, float elongation) {
+    vec2 diff = p1 - p2;
+    // Scale x component by elongation to create horizontal stretching
+    vec2 scaledDiff = vec2(diff.x * elongation, diff.y);
+    return length(scaledDiff);
   }
 
   void main() {
@@ -31,9 +35,13 @@ export const fragmentShaderSource = `
       vec3 pointColor = vec3(points[i].z, points[i].w, points[i+1].x);
       float intensity = intensities[i];
       float bend = bendFactors[i];
+      float elongation = elongations[i];
 
-      float dist = getDistance(uv, pointPos);
-      float weight = 1.0 / pow(dist * 4.0 + 0.1, bend) * intensity;
+      // Calculate distance with elongation
+      float dist = getDistance(uv, pointPos, elongation);
+      
+      // Apply bend factor to create gradient falloff
+      float weight = 1.0 / pow(dist * 2.0 + 0.1, bend) * intensity;
       
       totalWeight += weight;
       color += pointColor * weight;
