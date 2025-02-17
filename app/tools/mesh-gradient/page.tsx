@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Minus, Settings, Move, Download, Sliders, Shuffle, Undo2, Redo2 } from 'lucide-react';
+import { Plus, Minus, Settings, Move, Download, Sliders, Shuffle, Undo2, Redo2, ZoomIn, ZoomOut } from 'lucide-react';
 import { vertexShaderSource, fragmentShaderSource } from './shaders';
 import './styles.scss';
 import Button from '@/components/ui/Button';
@@ -344,6 +344,7 @@ export default function MeshGradientEditor() {
   const [hueRotation, setHueRotation] = useState(0);
   const [history, setHistory] = useState<Array<typeof points>>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [zoom, setZoom] = useState(100);
 
   const initWebGL = () => {
     if (!canvasRef.current) return;
@@ -1141,7 +1142,29 @@ export default function MeshGradientEditor() {
       </div>
 
       <div className="mesh-gradient-canvas-area">
-        <div className="canvas-container">
+        <div className="zoom-controls">
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => setZoom(Math.min(zoom + 10, 200))}
+            disabled={zoom >= 200}
+          >
+            <ZoomIn className="w-4 h-4" />
+          </Button>
+          <span className="zoom-level">{zoom}%</span>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => setZoom(Math.max(zoom - 10, 50))}
+            disabled={zoom <= 50}
+          >
+            <ZoomOut className="w-4 h-4" />
+          </Button>
+        </div>
+        <div className="canvas-container" style={{
+          transform: `scale(${zoom / 100})`,
+          transformOrigin: 'center center'
+        }}>
           <canvas
             ref={canvasRef}
             width={800}

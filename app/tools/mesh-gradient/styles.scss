@@ -189,10 +189,32 @@
     position: relative;
     overflow: hidden;
     
+    .zoom-controls {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--background);
+      padding: 0.25rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      z-index: 10;
+      
+      .zoom-level {
+        font-size: 0.875rem;
+        color: var(--foreground);
+        min-width: 3.5rem;
+        text-align: center;
+      }
+    }
+    
     .canvas-container {
       position: relative;
       width: 100%;
       height: 100%;
+      transition: transform 0.2s ease;
       
       canvas {
         position: absolute;
