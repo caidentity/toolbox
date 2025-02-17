@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Minus, Settings, Move, Download } from 'lucide-react';
+import { Plus, Minus, Settings, Move, Download, Sliders, Shuffle, Undo2, Redo2 } from 'lucide-react';
 import { vertexShaderSource, fragmentShaderSource } from './shaders';
 import './styles.scss';
 import Button from '@/components/ui/Button';
@@ -9,7 +9,7 @@ import { Menu } from '@/components/ui/Menu';
 import { generateCSSGradient, generateSVG } from './export-utils';
 import { CustomSlider } from '@/components/ui/Slider';
 import { cn } from '@/lib/utils';
-import { gradientPresets } from './gradient-presets';
+import { gradientPresets, hslToHex } from './gradient-presets';
 
 type MenuType = 'export';
 
@@ -115,6 +115,183 @@ function SettingsCard({
   )
 }
 
+function hexToHSL(hex: string): string {
+  // Remove the # if present
+  hex = hex.replace('#', '');
+  
+  // Convert hex to RGB with higher precision
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+
+  // Use more precise values without rounding
+  return `hsla(${h * 360}, ${s * 100}%, ${l * 100}%, 1)`;
+}
+
+function rotateHue(hexColor: string, rotation: number): string {
+  // Convert hex to HSL
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+
+  // Convert RGB to HSL
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+
+  // Apply rotation
+  h = (h + rotation / 360) % 1;
+  if (h < 0) h += 1;
+
+  // Convert back to RGB
+  function hue2rgb(p: number, q: number, t: number) {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  }
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+
+  const newR = Math.round(hue2rgb(p, q, h + 1/3) * 255);
+  const newG = Math.round(hue2rgb(p, q, h) * 255);
+  const newB = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+
+  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+}
+
+// Add interface for GlobalControls props
+interface GlobalControlsProps {
+  noiseAmount: number;
+  setNoiseAmount: (value: number) => void;
+  hueRotation: number;
+  setHueRotation: (value: number) => void;
+  points: Array<{
+    x: number;
+    y: number;
+    color: string;
+    intensity: number;
+    bend: number;
+    elongation: number;
+  }>;
+  setPoints: (points: Array<{
+    x: number;
+    y: number;
+    color: string;
+    intensity: number;
+    bend: number;
+    elongation: number;
+  }>) => void;
+  onHueChange: (value: number) => void;
+  onNoiseChange: (value: number) => void;
+  drawGradient: () => void;
+}
+
+function GlobalControls({ 
+  noiseAmount, 
+  setNoiseAmount,
+  hueRotation,
+  setHueRotation,
+  points,
+  setPoints,
+  onHueChange,
+  onNoiseChange,
+  drawGradient
+}: GlobalControlsProps) {
+  return (
+    <SettingsCard title="Global Controls" defaultOpen={true}>
+      <div className="control-group">
+        <div className="control-header">
+          <label>Noise</label>
+          <div className="value-controls">
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => onNoiseChange(0)}
+            >
+              Remove
+            </Button>
+            <span className="value-display">
+              {noiseAmount}%
+            </span>
+          </div>
+        </div>
+        <CustomSlider
+          min={0}
+          max={100}
+          step={1}
+          value={[noiseAmount]}
+          onChange={([value]) => onNoiseChange(value)}
+        />
+      </div>
+
+      <div className="control-group">
+        <div className="control-header">
+          <label>Hue Rotation</label>
+          <Button
+            size="xs"
+            variant="ghost"
+            leftIcon="shuffle_24"
+            onClick={() => {
+              const randomHue = Math.floor(Math.random() * 360);
+              setHueRotation(randomHue);
+              onHueChange(randomHue);
+              drawGradient();
+            }}
+          >
+            Randomize
+          </Button>
+        </div>
+        <CustomSlider
+          min={0}
+          max={360}
+          step={1}
+          value={[hueRotation]}
+          onChange={([value]) => {
+            setHueRotation(value);
+            onHueChange(value);
+            drawGradient();
+          }}
+        />
+      </div>
+    </SettingsCard>
+  );
+}
+
 export default function MeshGradientEditor() {
   const [points, setPoints] = useState([
     { x: 0.2, y: 0.2, color: '#FF4D4D', intensity: 1.0, bend: 3.0, elongation: 1.0 },
@@ -132,6 +309,10 @@ export default function MeshGradientEditor() {
     type: MenuType;
     anchor: { x: number; y: number };
   } | null>(null);
+  const [noiseAmount, setNoiseAmount] = useState(0);
+  const [hueRotation, setHueRotation] = useState(0);
+  const [history, setHistory] = useState<Array<typeof points>>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   const initWebGL = () => {
     if (!canvasRef.current) return;
@@ -228,31 +409,31 @@ export default function MeshGradientEditor() {
     const bendFactorsLocation = gl.getUniformLocation(program, 'bendFactors');
     const elongationsLocation = gl.getUniformLocation(program, 'elongations');
     const numPointsLocation = gl.getUniformLocation(program, 'numPoints');
+    const noiseLocation = gl.getUniformLocation(program, 'noiseAmount');
 
     // Set resolution
     gl.uniform2f(resolutionLocation, canvasRef.current.width, canvasRef.current.height);
 
     // Prepare point data
-    const pointsData = new Float32Array(128); // 32 points * 4 components
+    const pointsData = new Float32Array(128);
     points.forEach((point, i) => {
       const baseIndex = i * 4;
-      pointsData[baseIndex] = point.x;     // x position
-      pointsData[baseIndex + 1] = point.y; // y position
+      pointsData[baseIndex] = point.x;
+      pointsData[baseIndex + 1] = point.y;
       
-      // Convert hex color to RGB with proper scaling
-      const r = parseInt(point.color.slice(1, 3), 16) / 255;
-      const g = parseInt(point.color.slice(3, 5), 16) / 255;
-      const b = parseInt(point.color.slice(5, 7), 16) / 255;
+      // More precise color conversion without rounding
+      const hex = point.color.replace('#', '');
+      const r = parseInt(hex.slice(0, 2), 16) / 255;
+      const g = parseInt(hex.slice(2, 4), 16) / 255;
+      const b = parseInt(hex.slice(4, 6), 16) / 255;
       
-      // Store RGB values more accurately
+      // Store without rounding for maximum precision
       pointsData[baseIndex + 2] = r;
       pointsData[baseIndex + 3] = g;
       
-      // Handle blue component storage
       if (i < points.length - 1) {
-        pointsData[baseIndex + 4] = b; // Store blue in the next point's x
+        pointsData[baseIndex + 4] = b;
       } else {
-        // For the last point, store blue with r,g
         pointsData[baseIndex + 2] = b;
       }
     });
@@ -267,6 +448,7 @@ export default function MeshGradientEditor() {
     gl.uniform1fv(bendFactorsLocation, bendFactorsData);
     gl.uniform1fv(elongationsLocation, elongationsData);
     gl.uniform1i(numPointsLocation, points.length);
+    gl.uniform1f(noiseLocation, noiseAmount);
 
     // Draw
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -307,7 +489,7 @@ export default function MeshGradientEditor() {
       // Inner circle (point color)
       ctx.beginPath();
       ctx.arc(x, y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = point.color;
+      ctx.fillStyle = hexToHSL(point.color);
       ctx.fill();
       
       // Highlight for selected/hovered point
@@ -377,6 +559,38 @@ export default function MeshGradientEditor() {
       drawControlPoints();
     }
   }, []);
+
+  // Initialize history with current points
+  useEffect(() => {
+    setHistory([points]);
+    setHistoryIndex(0);
+  }, []);
+
+  const addToHistory = (newPoints: typeof points) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newPoints);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    drawGradient(); // Ensure gradient updates after history change
+  };
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setPoints(history[newIndex]);
+      drawGradient(); // Update gradient after undo
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setPoints(history[newIndex]);
+      drawGradient(); // Update gradient after redo
+    }
+  };
 
   // Redraw when points change
   useEffect(() => {
@@ -546,9 +760,10 @@ export default function MeshGradientEditor() {
     const newPoints = [...points];
     newPoints[index] = {
       ...newPoints[index],
-      color: newColor.toUpperCase() // Normalize color format
+      color: newColor.toUpperCase(), // Normalize color format
     };
     setPoints(newPoints);
+    drawGradient(); // Ensure immediate update
   };
 
   const handleRandomPreset = () => {
@@ -558,6 +773,19 @@ export default function MeshGradientEditor() {
     setSelectedPoint(0);
   };
 
+  // Add this effect to handle point changes
+  useEffect(() => {
+    if (history.length === 0) {
+      setHistory([points]);
+      setHistoryIndex(0);
+    }
+  }, [points]);
+
+  // Add this effect to ensure gradient updates when points change
+  useEffect(() => {
+    drawGradient();
+  }, [points]);
+
   return (
     <div className="mesh-gradient">
       <div className="mesh-gradient-sidebar">
@@ -565,6 +793,24 @@ export default function MeshGradientEditor() {
         
         <div className="mesh-gradient-sidebar-controls">
           <div className="header-actions">
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <Button
+                variant="secondary"
+                size="icon"
+                disabled={historyIndex <= 0}
+                onClick={undo}
+              >
+                <Undo2 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                disabled={historyIndex >= history.length - 1}
+                onClick={redo}
+              >
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </div>
             <div style={{ position: 'relative' }}>
               <Button
                 variant="secondary"
@@ -606,6 +852,42 @@ export default function MeshGradientEditor() {
             </Button>
           </div>
 
+          <GlobalControls 
+            noiseAmount={noiseAmount}
+            setNoiseAmount={(value) => {
+              setNoiseAmount(value);
+              drawGradient();
+            }}
+            hueRotation={hueRotation}
+            setHueRotation={(value) => {
+              setHueRotation(value);
+              const newPoints = points.map(point => ({
+                ...point,
+                color: rotateHue(point.color, value)
+              }));
+              setPoints(newPoints);
+              addToHistory(newPoints);
+            }}
+            points={points}
+            setPoints={(value) => {
+              setPoints(value);
+              addToHistory(value);
+            }}
+            onHueChange={(value) => {
+              const newPoints = points.map(point => ({
+                ...point,
+                color: rotateHue(point.color, value)
+              }));
+              setPoints(newPoints);
+              addToHistory(newPoints);
+            }}
+            onNoiseChange={(value) => {
+              setNoiseAmount(value);
+              drawGradient();
+            }}
+            drawGradient={drawGradient}
+          />
+
           <SettingsCard title="Points">
             <div className="mesh-gradient-point-grid">
               {points.map((point, index) => (
@@ -614,7 +896,12 @@ export default function MeshGradientEditor() {
                   className={`point-card ${selectedPoint === index ? 'selected' : ''}`}
                   onClick={() => setSelectedPoint(index)}
                 >
-                  <div className="point-preview" style={{ backgroundColor: point.color }} />
+                  <div 
+                    className="point-preview" 
+                    style={{ 
+                      backgroundColor: hexToHSL(point.color)  // Convert hex to HSL for display
+                    }} 
+                  />
                   <div className="point-info">
                     <span className="point-name">Point {index + 1}</span>
                     {selectedPoint === index && points.length > 2 && (
