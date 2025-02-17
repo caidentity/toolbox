@@ -207,6 +207,8 @@ interface GlobalControlsProps {
     intensity: number;
     bend: number;
     elongation: number;
+    rotation: number;
+    sBend: number;
   }>;
   setPoints: (points: Array<{
     x: number;
@@ -215,6 +217,8 @@ interface GlobalControlsProps {
     intensity: number;
     bend: number;
     elongation: number;
+    rotation: number;
+    sBend: number;
   }>) => void;
   onHueChange: (value: number) => void;
   onNoiseChange: (value: number) => void;
@@ -294,9 +298,36 @@ function GlobalControls({
 
 export default function MeshGradientEditor() {
   const [points, setPoints] = useState([
-    { x: 0.2, y: 0.2, color: '#FF4D4D', intensity: 1.0, bend: 3.0, elongation: 1.0 },
-    { x: 0.8, y: 0.2, color: '#4D4DFF', intensity: 1.0, bend: 3.0, elongation: 1.0 },
-    { x: 0.5, y: 0.8, color: '#4DFF4D', intensity: 1.0, bend: 3.0, elongation: 1.0 }
+    { 
+      x: 0.2, 
+      y: 0.2, 
+      color: '#FF4D4D', 
+      intensity: 1.0, 
+      bend: 3.0, 
+      elongation: 1.0,
+      rotation: 0,
+      sBend: 0 
+    },
+    { 
+      x: 0.8, 
+      y: 0.2, 
+      color: '#4D4DFF', 
+      intensity: 1.0, 
+      bend: 3.0, 
+      elongation: 1.0,
+      rotation: 0,
+      sBend: 0 
+    },
+    { 
+      x: 0.5, 
+      y: 0.8, 
+      color: '#4DFF4D', 
+      intensity: 1.0, 
+      bend: 3.0, 
+      elongation: 1.0,
+      rotation: 0,
+      sBend: 0 
+    }
   ]);
   const [selectedPoint, setSelectedPoint] = useState<number | null>(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -410,6 +441,8 @@ export default function MeshGradientEditor() {
     const elongationsLocation = gl.getUniformLocation(program, 'elongations');
     const numPointsLocation = gl.getUniformLocation(program, 'numPoints');
     const noiseLocation = gl.getUniformLocation(program, 'noiseAmount');
+    const rotationsLocation = gl.getUniformLocation(program, 'rotations');
+    const sBendsLocation = gl.getUniformLocation(program, 'sBends');
 
     // Set resolution
     gl.uniform2f(resolutionLocation, canvasRef.current.width, canvasRef.current.height);
@@ -441,12 +474,16 @@ export default function MeshGradientEditor() {
     const intensitiesData = new Float32Array(points.map(p => p.intensity));
     const bendFactorsData = new Float32Array(points.map(p => p.bend));
     const elongationsData = new Float32Array(points.map(p => p.elongation));
+    const rotationsData = new Float32Array(points.map(p => p.rotation));
+    const sBendsData = new Float32Array(points.map(p => p.sBend));
 
     // Set uniforms
     gl.uniform4fv(pointsLocation, pointsData);
     gl.uniform1fv(intensitiesLocation, intensitiesData);
     gl.uniform1fv(bendFactorsLocation, bendFactorsData);
     gl.uniform1fv(elongationsLocation, elongationsData);
+    gl.uniform1fv(rotationsLocation, rotationsData);
+    gl.uniform1fv(sBendsLocation, sBendsData);
     gl.uniform1i(numPointsLocation, points.length);
     gl.uniform1f(noiseLocation, noiseAmount);
 
@@ -657,7 +694,9 @@ export default function MeshGradientEditor() {
         color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
         intensity: 1.0,
         bend: 3.0,
-        elongation: 1.0
+        elongation: 1.0,
+        rotation: 0,
+        sBend: 0
       };
       setPoints([...points, newPoint]);
       setSelectedPoint(points.length);
@@ -955,7 +994,9 @@ export default function MeshGradientEditor() {
                       color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
                       intensity: 1.0,
                       bend: 3.0,
-                      elongation: 1.0
+                      elongation: 1.0,
+                      rotation: 0,
+                      sBend: 0
                     };
                     setPoints([...points, newPoint]);
                     setSelectedPoint(points.length);
@@ -1056,6 +1097,39 @@ export default function MeshGradientEditor() {
                   newPoints[selectedPoint] = {
                     ...newPoints[selectedPoint],
                     elongation: value
+                  };
+                  setPoints(newPoints);
+                }}
+              />
+
+              <SettingControl
+                label="Rotation"
+                value={points[selectedPoint].rotation}
+                min={0}
+                max={360}
+                step={1}
+                unit="°"
+                onChange={(value) => {
+                  const newPoints = [...points];
+                  newPoints[selectedPoint] = {
+                    ...newPoints[selectedPoint],
+                    rotation: value * (Math.PI / 180) // Convert to radians for shader
+                  };
+                  setPoints(newPoints);
+                }}
+              />
+
+              <SettingControl
+                label="S-Bend"
+                value={points[selectedPoint].sBend}
+                min={-1}
+                max={1}
+                step={0.01}
+                onChange={(value) => {
+                  const newPoints = [...points];
+                  newPoints[selectedPoint] = {
+                    ...newPoints[selectedPoint],
+                    sBend: value
                   };
                   setPoints(newPoints);
                 }}

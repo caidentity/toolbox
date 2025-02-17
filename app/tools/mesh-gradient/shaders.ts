@@ -16,6 +16,8 @@ export const fragmentShaderSource = `
   uniform float elongations[32];
   uniform int numPoints;
   uniform float noiseAmount;
+  uniform float rotations[32];    // Add rotation uniform
+  uniform float sBends[32];       // Add S-bend uniform
 
   // Better noise function
   float rand(vec2 co) {
@@ -33,10 +35,30 @@ export const fragmentShaderSource = `
     return res*res;
   }
 
-  float getDistance(vec2 p1, vec2 p2, float elongation) {
+  // Helper function to rotate a point
+  vec2 rotate2D(vec2 p, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec2(
+      p.x * c - p.y * s,
+      p.x * s + p.y * c
+    );
+  }
+
+  float getDistance(vec2 p1, vec2 p2, float elongation, float rotation, float sBend) {
     vec2 diff = p1 - p2;
-    vec2 scaledDiff = vec2(diff.x * elongation, diff.y);
-    return length(scaledDiff);
+    
+    // Apply rotation first
+    diff = rotate2D(diff, rotation);
+    
+    // Apply S-bend before elongation
+    float bendAmount = sBend * sin(3.14159 * diff.x);
+    diff.y += bendAmount;
+    
+    // Apply elongation last
+    diff.x *= elongation;
+    
+    return length(diff);
   }
 
   // Improved speckle noise
@@ -58,7 +80,7 @@ export const fragmentShaderSource = `
       vec2 pointPos = points[i].xy;
       vec3 pointColor;
       if (i == numPoints - 1) {
-        pointColor = vec3(points[i].z, points[i].w, points[i].z);
+        pointColor = vec3(points[i].z, points[i].w, points[i+1].x);
       } else {
         pointColor = vec3(points[i].z, points[i].w, points[i+1].x);
       }
@@ -66,8 +88,10 @@ export const fragmentShaderSource = `
       float intensity = intensities[i];
       float bend = bendFactors[i];
       float elongation = elongations[i];
+      float rotation = rotations[i];
+      float sBend = sBends[i];
 
-      float dist = getDistance(uv, pointPos, elongation);
+      float dist = getDistance(uv, pointPos, elongation, rotation, sBend);
       float weight = 1.0 / (pow(dist * 2.0 + 0.05, bend) + 0.01) * intensity;
       
       totalWeight += weight;

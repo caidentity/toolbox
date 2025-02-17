@@ -5,6 +5,8 @@ interface GradientPoint {
   intensity: number;
   bend: number;
   elongation: number;
+  rotation: number;
+  sBend: number;
 }
 
 // Helper to convert hex to HSL
@@ -49,7 +51,7 @@ export function generateCSSGradient(points: GradientPoint[]) {
   const sortedPoints = [...points].sort((a, b) => b.intensity - a.intensity);
 
   // Generate radial gradients for each point
-  const gradients = sortedPoints.map((point, index) => {
+  const gradients = sortedPoints.map((point) => {
     const hsl = hexToHSL(point.color);
     const x = Math.round(point.x * 100);
     const y = Math.round(point.y * 100);
@@ -57,20 +59,19 @@ export function generateCSSGradient(points: GradientPoint[]) {
     // Calculate radius based on intensity and elongation
     const radius = Math.round(100 * point.elongation * point.intensity);
     const opacity = Math.min(point.intensity, 1);
-    
-    return `radial-gradient(
-      circle at ${x}% ${y}%, 
-      hsla(${hsl.h}, ${hsl.s}%, ${hsl.l}%, ${opacity}) ${Math.round(radius * 0.1)}%, 
-      transparent ${Math.round(radius * 0.9)}%
-    )`;
-  }).join(',\n    ');
+
+    // Create the gradient with standard CSS syntax
+    return `radial-gradient(at ${x}% ${y}%, hsla(${hsl.h},${hsl.s}%,${hsl.l}%,${opacity}) 0px, transparent ${radius}%)`;
+  }).join(',\n');
 
   // Get base color from most intense point
   const baseColor = hexToHSL(sortedPoints[0].color);
 
-  return `background-color: hsla(${baseColor.h}, ${baseColor.s}%, ${baseColor.l}%, 1);
-background-image: ${gradients};
-background-blend-mode: ${Array(points.length).fill('normal').join(', ')};`;
+  // Format the final CSS
+  return `background-color: hsla(${baseColor.h},${baseColor.s}%,${baseColor.l}%,1);
+background-image: 
+${gradients};
+background-blend-mode: screen;`;
 }
 
 export function generateSVG(points: GradientPoint[]) {
@@ -88,11 +89,6 @@ export function generateSVG(points: GradientPoint[]) {
         <feFuncB type="linear" slope="1.2"/>
       </feComponentTransfer>
     </filter>
-
-    <filter id="blendSoftLight">
-      <feGaussianBlur stdDeviation="25"/>
-      <feBlend mode="soft-light" in="SourceGraphic"/>
-    </filter>
   `);
 
   // Sort points by intensity for proper layering
@@ -102,7 +98,12 @@ export function generateSVG(points: GradientPoint[]) {
   sortedPoints.forEach((point, index) => {
     const gradientId = `gradient${index}`;
     
-    // Create radial gradient with smoother falloff
+    // Create radial gradient with rotation and s-bend transforms
+    const rotation = point.rotation * (180 / Math.PI); // Convert to degrees
+    const transform = `rotate(${rotation})`;
+    const sBendTransform = point.sBend !== 0 ? 
+      `skewY(${point.sBend * 45})` : ''; // Convert s-bend to skew
+
     defs.push(`
       <radialGradient id="${gradientId}"
         cx="${point.x * 100}%"
@@ -110,45 +111,34 @@ export function generateSVG(points: GradientPoint[]) {
         r="${150 * point.elongation}%"
         fx="${point.x * 100}%"
         fy="${point.y * 100}%"
-        gradientUnits="userSpaceOnUse">
+        gradientUnits="userSpaceOnUse"
+        gradientTransform="${transform} ${sBendTransform}">
         <stop offset="0%" stop-color="${point.color}" stop-opacity="${point.intensity}"/>
         <stop offset="35%" stop-color="${point.color}" stop-opacity="${point.intensity * 0.8}"/>
         <stop offset="65%" stop-color="${point.color}" stop-opacity="${point.intensity * 0.3}"/>
         <stop offset="100%" stop-color="${point.color}" stop-opacity="0"/>
       </radialGradient>
-
-      <filter id="glow${index}">
-        <feGaussianBlur stdDeviation="${10 * point.bend}" result="blur"/>
-        <feComposite operator="over" in="blur" in2="SourceGraphic"/>
-      </filter>
     `);
 
-    // Create shape with gradient
     shapes.push(`
       <circle
         cx="${point.x * size}"
         cy="${point.y * size}"
         r="${size * 0.8 * point.elongation}"
         fill="url(#${gradientId})"
-        filter="url(#glow${index})"
         style="mix-blend-mode: screen"
       />
     `);
   });
 
-  // Create the SVG
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
   <defs>
     ${defs.join('\n')}
   </defs>
-
   <rect width="100%" height="100%" fill="#ffffff"/>
-  
   <g filter="url(#mainBlend)">
-    <g filter="url(#blendSoftLight)">
-      ${shapes.join('\n')}
-    </g>
+    ${shapes.join('\n')}
   </g>
 </svg>`;
 }
