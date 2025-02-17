@@ -1,9 +1,14 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Minus, Settings, Move } from 'lucide-react';
+import { Plus, Minus, Settings, Move, Download } from 'lucide-react';
 import { vertexShaderSource, fragmentShaderSource } from './shaders';
 import './styles.scss';
+import Button from '@/components/ui/Button';
+import { Menu } from '@/components/ui/Menu';
+import { generateCSSGradient, generateSVG } from './export-utils';
+
+type MenuType = 'export';
 
 export default function MeshGradientEditor() {
   const [points, setPoints] = useState([
@@ -17,6 +22,10 @@ export default function MeshGradientEditor() {
   const programRef = useRef<WebGLProgram | null>(null);
   const [hoverPoint, setHoverPoint] = useState<number | null>(null);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [openMenus, setOpenMenus] = useState<{
+    type: MenuType;
+    anchor: { x: number; y: number };
+  } | null>(null);
 
   const initWebGL = () => {
     if (!canvasRef.current) return;
@@ -348,6 +357,81 @@ export default function MeshGradientEditor() {
     }
   };
 
+  const handleMenuOpen = (type: MenuType) => (event: React.MouseEvent) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    setOpenMenus({
+      type,
+      anchor: {
+        x: rect.left,
+        y: rect.bottom
+      }
+    });
+  };
+
+  const handleMenuClose = () => {
+    setOpenMenus(null);
+  };
+
+  const handleExportFormat = (format: 'css' | 'svg') => {
+    let content = '';
+    
+    switch (format) {
+      case 'css':
+        content = generateCSSGradient(points);
+        // Copy CSS to clipboard
+        navigator.clipboard.writeText(content).then(() => {
+          handleMenuClose();
+          // Show toast notification
+          const el = document.createElement('div');
+          el.style.position = 'fixed';
+          el.style.top = '1rem';
+          el.style.left = '50%';
+          el.style.transform = 'translateX(-50%)';
+          el.style.background = 'rgba(0, 0, 0, 0.8)';
+          el.style.color = 'white';
+          el.style.padding = '0.5rem 1rem';
+          el.style.borderRadius = '4px';
+          el.style.fontSize = '0.875rem';
+          el.textContent = 'CSS copied to clipboard!';
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 2000);
+        });
+        break;
+
+      case 'svg':
+        content = generateSVG(points);
+        
+        // Create blob and download link
+        const blob = new Blob([content], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'mesh-gradient.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        handleMenuClose();
+        // Show toast notification
+        const el = document.createElement('div');
+        el.style.position = 'fixed';
+        el.style.top = '1rem';
+        el.style.left = '50%';
+        el.style.transform = 'translateX(-50%)';
+        el.style.background = 'rgba(0, 0, 0, 0.8)';
+        el.style.color = 'white';
+        el.style.padding = '0.5rem 1rem';
+        el.style.borderRadius = '4px';
+        el.style.fontSize = '0.875rem';
+        el.textContent = 'SVG downloaded!';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 2000);
+        break;
+    }
+  };
+
   return (
     <div className="mesh-gradient">
       <div className="mesh-gradient-sidebar">
@@ -390,6 +474,36 @@ export default function MeshGradientEditor() {
             >
               <Minus className="w-4 h-4" /> Remove
             </button>
+            <div style={{ position: 'relative' }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon="content_copy_24"
+                rightIcon="chevron_down_24"
+                onClick={handleMenuOpen('export')}
+              >
+                Export
+              </Button>
+              <Menu
+                isOpen={openMenus?.type === 'export'}
+                onClose={handleMenuClose}
+                anchorPoint={openMenus?.type === 'export' ? openMenus.anchor : undefined}
+                items={[
+                  {
+                    type: 'default',
+                    label: 'Copy as CSS',
+                    onClick: () => handleExportFormat('css'),
+                    leftIcon: 'content_copy_24'
+                  },
+                  {
+                    type: 'default',
+                    label: 'Download SVG',
+                    onClick: () => handleExportFormat('svg'),
+                    leftIcon: 'download_24'
+                  }
+                ]}
+              />
+            </div>
           </div>
 
           <div className="mesh-gradient-sidebar-point-list">
