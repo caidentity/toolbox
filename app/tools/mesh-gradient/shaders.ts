@@ -37,8 +37,10 @@ export const fragmentShaderSource = `
 
   // Helper function to rotate a point
   vec2 rotate2D(vec2 p, float angle) {
-    float s = sin(angle);
-    float c = cos(angle);
+    // Convert angle to radians and normalize
+    float rad = angle * 3.14159 / 180.0;
+    float s = sin(rad);
+    float c = cos(rad);
     return vec2(
       p.x * c - p.y * s,
       p.x * s + p.y * c
@@ -48,17 +50,20 @@ export const fragmentShaderSource = `
   float getDistance(vec2 p1, vec2 p2, float elongation, float rotation, float sBend) {
     vec2 diff = p1 - p2;
     
-    // Apply rotation first
-    diff = rotate2D(diff, rotation);
+    // Center the point before rotation
+    vec2 centered = diff;
     
-    // Apply S-bend before elongation
-    float bendAmount = sBend * sin(3.14159 * diff.x);
-    diff.y += bendAmount;
+    // Apply rotation
+    centered = rotate2D(centered, rotation);
     
-    // Apply elongation last
-    diff.x *= elongation;
+    // Apply S-bend
+    float bendAmount = sBend * sin(3.14159 * centered.x);
+    centered.y += bendAmount;
     
-    return length(diff);
+    // Apply elongation after rotation
+    centered.x *= elongation;
+    
+    return length(centered);
   }
 
   // Improved speckle noise

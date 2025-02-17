@@ -1113,9 +1113,10 @@ export default function MeshGradientEditor() {
                   const newPoints = [...points];
                   newPoints[selectedPoint] = {
                     ...newPoints[selectedPoint],
-                    rotation: value * (Math.PI / 180) // Convert to radians for shader
+                    rotation: value // Store as degrees, shader will convert
                   };
                   setPoints(newPoints);
+                  drawGradient();
                 }}
               />
 
