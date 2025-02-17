@@ -457,26 +457,38 @@ export default function MeshGradientEditor() {
   const drawControlPoints = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
+    
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw each control point
+    
     points.forEach((point, index) => {
       const x = point.x * canvas.width;
       const y = point.y * canvas.height;
       
-      // Draw origin point indicator (crosshair)
+      // Draw origin crosshair with drop shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = 2;
+      
+      // Draw crosshair
       ctx.beginPath();
       ctx.moveTo(x - 6, y);
       ctx.lineTo(x + 6, y);
       ctx.moveTo(x, y - 6);
       ctx.lineTo(x, y + 6);
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
       ctx.lineWidth = 1;
       ctx.stroke();
+      
+      // Draw center dot
+      ctx.beginPath();
+      ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+      
+      ctx.restore();
       
       // Outer circle (white background)
       ctx.beginPath();
@@ -508,6 +520,16 @@ export default function MeshGradientEditor() {
         ctx.arc(x, y, 12, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Draw origin crosshair on top for selected/hovered points
+        ctx.beginPath();
+        ctx.moveTo(x - 8, y);
+        ctx.lineTo(x + 8, y);
+        ctx.moveTo(x, y - 8);
+        ctx.lineTo(x, y + 8);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
 
@@ -1043,18 +1065,36 @@ export default function MeshGradientEditor() {
       </div>
 
       <div className="mesh-gradient-canvas-area">
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={800}
-          onClick={handleCanvasClick}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
-        />
-        <div className="help-text">
-          <Move className="w-4 h-4" />
-          Click to add points (max 32). Drag to move. Adjust controls in sidebar.
+        <div className="canvas-container">
+          <canvas
+            ref={canvasRef}
+            width={800}
+            height={800}
+            onClick={handleCanvasClick}
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onMouseMove={handleMouseMove}
+          />
+          <div className="points-overlay">
+            {points.map((point, index) => (
+              <div
+                key={index}
+                className="point-origin"
+                style={{
+                  left: `${point.x * 100}%`,
+                  top: `${point.y * 100}%`,
+                  opacity: index === selectedPoint ? 1 : 0.4,
+                  zIndex: index === selectedPoint ? 2 : 1
+                }}
+              >
+                <div className="origin-center" />
+              </div>
+            ))}
+          </div>
+          <div className="help-text">
+            <Move className="w-4 h-4" />
+            Click to add points (max 32). Drag to move. Adjust controls in sidebar.
+          </div>
         </div>
       </div>
     </div>
