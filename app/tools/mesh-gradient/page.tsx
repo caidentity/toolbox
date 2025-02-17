@@ -850,8 +850,8 @@ export default function MeshGradientEditor() {
   }, [points]);
 
   return (
-    <div className="mesh-gradient">
-      <div className="mesh-gradient-sidebar">
+    <div className="mesh-gradient color-generator">
+      <div className="mesh-gradient-sidebar sidebar">
         <h2>Mesh Gradient</h2>
         
         <div className="mesh-gradient-sidebar-controls">
@@ -1141,7 +1141,7 @@ export default function MeshGradientEditor() {
         </div>
       </div>
 
-      <div className="mesh-gradient-canvas-area">
+      <div className="mesh-gradient-canvas-area main-content">
         <div className="zoom-controls">
           <Button
             variant="secondary"

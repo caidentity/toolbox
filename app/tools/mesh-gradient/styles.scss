@@ -3,9 +3,10 @@
   height: 100vh;
   width: 100%;
 
+
   &-sidebar {
     width: 280px; // Match ColorPaletteGenerator width
-    background-color: white;
+    background: var(--background-secondary);
     padding: 1rem;
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
     overflow-y: auto;
