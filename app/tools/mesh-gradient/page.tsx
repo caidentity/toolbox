@@ -7,8 +7,112 @@ import './styles.scss';
 import Button from '@/components/ui/Button';
 import { Menu } from '@/components/ui/Menu';
 import { generateCSSGradient, generateSVG } from './export-utils';
+import { CustomSlider } from '@/components/ui/Slider';
+import { cn } from '@/lib/utils';
 
 type MenuType = 'export';
+
+interface SettingControlProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (value: number) => void;
+  onReset?: () => void;
+}
+
+function SettingControl({ 
+  label, 
+  value, 
+  min, 
+  max, 
+  step = 1, 
+  unit = '', 
+  onChange, 
+  onReset 
+}: SettingControlProps) {
+  return (
+    <div className="control-group">
+      <div className="control-header">
+        <label>{label}</label>
+        <div className="value-controls">
+          {onReset && (
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={onReset}
+            >
+              Reset
+            </Button>
+          )}
+          <span className="value-display">
+            {value}{unit}
+          </span>
+        </div>
+      </div>
+      <CustomSlider
+        min={min}
+        max={max}
+        step={step}
+        value={[value]}
+        onChange={([newValue]) => onChange(newValue)}
+      />
+    </div>
+  );
+}
+
+interface SettingsCardProps {
+  title: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+  className?: string
+}
+
+function SettingsCard({ 
+  title, 
+  defaultOpen = true, 
+  children,
+  className 
+}: SettingsCardProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  return (
+    <div className={cn('settings-card', className)}>
+      <div
+        className="settings-card-header"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <h2>{title}</h2>
+        <svg 
+          className={cn(
+            'settings-card-chevron',
+            isOpen && 'rotate'
+          )}
+          width="16" 
+          height="16" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2"
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div
+        className={cn(
+          'settings-card-content',
+          isOpen ? 'settings-card-open' : 'settings-card-closed'
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
 
 export default function MeshGradientEditor() {
   const [points, setPoints] = useState([
@@ -435,45 +539,10 @@ export default function MeshGradientEditor() {
   return (
     <div className="mesh-gradient">
       <div className="mesh-gradient-sidebar">
-        <h3 className="mesh-gradient-sidebar-header">
-          <Settings className="w-5 h-5" />
-          Controls
-        </h3>
+        <h2>Mesh Gradient</h2>
         
         <div className="mesh-gradient-sidebar-controls">
-          <div className="mesh-gradient-sidebar-button-group">
-            <button
-              className="add"
-              onClick={() => {
-                if (points.length < 32) {
-                  const newPoint = {
-                    x: 0.5,
-                    y: 0.5,
-                    color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
-                    intensity: 1.0,
-                    bend: 3.0,
-                    elongation: 1.0
-                  };
-                  setPoints([...points, newPoint]);
-                  setSelectedPoint(points.length);
-                }
-              }}
-              disabled={points.length >= 32}
-            >
-              <Plus className="w-4 h-4" /> Add Point
-            </button>
-            <button
-              className="remove"
-              onClick={() => {
-                if (selectedPoint !== null && points.length > 2) {
-                  setPoints(points.filter((_, index) => index !== selectedPoint));
-                  setSelectedPoint(0);
-                }
-              }}
-              disabled={points.length <= 2}
-            >
-              <Minus className="w-4 h-4" /> Remove
-            </button>
+          <div className="header-actions">
             <div style={{ position: 'relative' }}>
               <Button
                 variant="secondary"
@@ -506,31 +575,60 @@ export default function MeshGradientEditor() {
             </div>
           </div>
 
-          <div className="mesh-gradient-sidebar-point-list">
-            <h4 className="mesh-gradient-sidebar-point-list-header">
-              Points ({points.length}/32)
-            </h4>
-            <div className="mesh-gradient-sidebar-point-list-container">
+          <SettingsCard title="Points">
+            <div className="mesh-gradient-point-grid">
               {points.map((point, index) => (
                 <div
                   key={index}
-                  className={`mesh-gradient-sidebar-point-list-item ${
-                    selectedPoint === index ? 'selected' : ''
-                  }`}
+                  className={`point-card ${selectedPoint === index ? 'selected' : ''}`}
                   onClick={() => setSelectedPoint(index)}
                 >
-                  <div
-                    className="color-preview"
-                    style={{ backgroundColor: point.color }}
-                  />
-                  <span className="point-label">Point {index + 1}</span>
+                  <div className="point-preview" style={{ backgroundColor: point.color }} />
+                  <div className="point-info">
+                    <span className="point-name">Point {index + 1}</span>
+                    {selectedPoint === index && points.length > 2 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="remove-point"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPoints(points.filter((_, i) => i !== index));
+                          setSelectedPoint(0);
+                        }}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
+              
+              {points.length < 32 && (
+                <button
+                  className="add-point-card"
+                  onClick={() => {
+                    const newPoint = {
+                      x: 0.5,
+                      y: 0.5,
+                      color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
+                      intensity: 1.0,
+                      bend: 3.0,
+                      elongation: 1.0
+                    };
+                    setPoints([...points, newPoint]);
+                    setSelectedPoint(points.length);
+                  }}
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add Point</span>
+                </button>
+              )}
             </div>
-          </div>
+          </SettingsCard>
 
           {selectedPoint !== null && (
-            <div className="mesh-gradient-sidebar-point-controls">
+            <SettingsCard title={`Point ${selectedPoint + 1} Settings`}>
               <div className="control-group">
                 <label>Color</label>
                 <input
@@ -547,101 +645,88 @@ export default function MeshGradientEditor() {
                 />
               </div>
 
-              <div className="control-group">
-                <label>X Position: {(points[selectedPoint].x * 100).toFixed(1)}%</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={points[selectedPoint].x}
-                  onChange={(e) => {
-                    const newPoints = [...points];
-                    newPoints[selectedPoint] = {
-                      ...newPoints[selectedPoint],
-                      x: parseFloat(e.target.value)
-                    };
-                    setPoints(newPoints);
-                  }}
-                />
-              </div>
+              <SettingControl
+                label="X Position"
+                value={points[selectedPoint].x * 100}
+                min={0}
+                max={100}
+                step={0.1}
+                unit="%"
+                onChange={(value) => {
+                  const newPoints = [...points];
+                  newPoints[selectedPoint] = {
+                    ...newPoints[selectedPoint],
+                    x: value / 100
+                  };
+                  setPoints(newPoints);
+                }}
+              />
 
-              <div className="control-group">
-                <label>Y Position: {(points[selectedPoint].y * 100).toFixed(1)}%</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={points[selectedPoint].y}
-                  onChange={(e) => {
-                    const newPoints = [...points];
-                    newPoints[selectedPoint] = {
-                      ...newPoints[selectedPoint],
-                      y: parseFloat(e.target.value)
-                    };
-                    setPoints(newPoints);
-                  }}
-                />
-              </div>
+              <SettingControl
+                label="Y Position"
+                value={points[selectedPoint].y * 100}
+                min={0}
+                max={100}
+                step={0.1}
+                unit="%"
+                onChange={(value) => {
+                  const newPoints = [...points];
+                  newPoints[selectedPoint] = {
+                    ...newPoints[selectedPoint],
+                    y: value / 100
+                  };
+                  setPoints(newPoints);
+                }}
+              />
 
-              <div className="control-group">
-                <label>Intensity: {points[selectedPoint].intensity.toFixed(1)}</label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="3.0"
-                  step="0.1"
-                  value={points[selectedPoint].intensity}
-                  onChange={(e) => {
-                    const newPoints = [...points];
-                    newPoints[selectedPoint] = {
-                      ...newPoints[selectedPoint],
-                      intensity: parseFloat(e.target.value)
-                    };
-                    setPoints(newPoints);
-                  }}
-                />
-              </div>
+              <SettingControl
+                label="Intensity"
+                value={points[selectedPoint].intensity}
+                min={0.1}
+                max={3.0}
+                step={0.1}
+                onChange={(value) => {
+                  const newPoints = [...points];
+                  newPoints[selectedPoint] = {
+                    ...newPoints[selectedPoint],
+                    intensity: value
+                  };
+                  setPoints(newPoints);
+                }}
+              />
 
-              <div className="control-group">
-                <label>Bend Factor: {points[selectedPoint].bend.toFixed(1)}</label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="6.0"
-                  step="0.1"
-                  value={points[selectedPoint].bend}
-                  onChange={(e) => {
-                    const newPoints = [...points];
-                    newPoints[selectedPoint] = {
-                      ...newPoints[selectedPoint],
-                      bend: parseFloat(e.target.value)
-                    };
-                    setPoints(newPoints);
-                  }}
-                />
-              </div>
+              <SettingControl
+                label="Bend Factor"
+                value={points[selectedPoint].bend}
+                min={0.1}
+                max={6.0}
+                step={0.1}
+                onChange={(value) => {
+                  const newPoints = [...points];
+                  newPoints[selectedPoint] = {
+                    ...newPoints[selectedPoint],
+                    bend: value
+                  };
+                  setPoints(newPoints);
+                }}
+              />
 
-              <div className="control-group">
-                <label>Elongation: {points[selectedPoint].elongation.toFixed(1)}</label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="4.0"
-                  step="0.1"
-                  value={points[selectedPoint].elongation}
-                  onChange={(e) => {
-                    const newPoints = [...points];
-                    newPoints[selectedPoint] = {
-                      ...newPoints[selectedPoint],
-                      elongation: parseFloat(e.target.value)
-                    };
-                    setPoints(newPoints);
-                  }}
-                />
-              </div>
-            </div>
+              <SettingControl
+                label="Elongation"
+                value={points[selectedPoint].elongation}
+                min={0.1}
+                max={4.0}
+                step={0.1}
+                onChange={(value) => {
+                  const newPoints = [...points];
+                  newPoints[selectedPoint] = {
+                    ...newPoints[selectedPoint],
+                    elongation: value
+                  };
+                  setPoints(newPoints);
+                }}
+              />
+            </SettingsCard>
           )}
         </div>
       </div>
