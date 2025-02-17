@@ -9,6 +9,7 @@ import { Menu } from '@/components/ui/Menu';
 import { generateCSSGradient, generateSVG } from './export-utils';
 import { CustomSlider } from '@/components/ui/Slider';
 import { cn } from '@/lib/utils';
+import { gradientPresets } from './gradient-presets';
 
 type MenuType = 'export';
 
@@ -116,8 +117,9 @@ function SettingsCard({
 
 export default function MeshGradientEditor() {
   const [points, setPoints] = useState([
-    { x: 0.25, y: 0.25, color: '#ff0000', intensity: 1.0, bend: 3.0, elongation: 1.0 },
-    { x: 0.75, y: 0.75, color: '#0000ff', intensity: 1.0, bend: 3.0, elongation: 1.0 }
+    { x: 0.2, y: 0.2, color: '#FF4D4D', intensity: 1.0, bend: 3.0, elongation: 1.0 },
+    { x: 0.8, y: 0.2, color: '#4D4DFF', intensity: 1.0, bend: 3.0, elongation: 1.0 },
+    { x: 0.5, y: 0.8, color: '#4DFF4D', intensity: 1.0, bend: 3.0, elongation: 1.0 }
   ]);
   const [selectedPoint, setSelectedPoint] = useState<number | null>(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -237,17 +239,21 @@ export default function MeshGradientEditor() {
       pointsData[baseIndex] = point.x;     // x position
       pointsData[baseIndex + 1] = point.y; // y position
       
-      // Convert hex color to RGB
+      // Convert hex color to RGB with proper scaling
       const r = parseInt(point.color.slice(1, 3), 16) / 255;
       const g = parseInt(point.color.slice(3, 5), 16) / 255;
       const b = parseInt(point.color.slice(5, 7), 16) / 255;
       
+      // Store RGB values more accurately
       pointsData[baseIndex + 2] = r;
       pointsData[baseIndex + 3] = g;
+      
+      // Handle blue component storage
       if (i < points.length - 1) {
         pointsData[baseIndex + 4] = b; // Store blue in the next point's x
       } else {
-        pointsData[baseIndex + 2] = b; // For the last point, store blue with r,g
+        // For the last point, store blue with r,g
+        pointsData[baseIndex + 2] = b;
       }
     });
 
@@ -536,6 +542,22 @@ export default function MeshGradientEditor() {
     }
   };
 
+  const handleColorChange = (index: number, newColor: string) => {
+    const newPoints = [...points];
+    newPoints[index] = {
+      ...newPoints[index],
+      color: newColor.toUpperCase() // Normalize color format
+    };
+    setPoints(newPoints);
+  };
+
+  const handleRandomPreset = () => {
+    const randomIndex = Math.floor(Math.random() * gradientPresets.length);
+    const preset = gradientPresets[randomIndex];
+    setPoints([...preset.points]);
+    setSelectedPoint(0);
+  };
+
   return (
     <div className="mesh-gradient">
       <div className="mesh-gradient-sidebar">
@@ -573,6 +595,15 @@ export default function MeshGradientEditor() {
                 ]}
               />
             </div>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon="shuffle_24"
+              onClick={handleRandomPreset}
+            >
+              Random Preset
+            </Button>
           </div>
 
           <SettingsCard title="Points">
@@ -634,14 +665,7 @@ export default function MeshGradientEditor() {
                 <input
                   type="color"
                   value={points[selectedPoint].color}
-                  onChange={(e) => {
-                    const newPoints = [...points];
-                    newPoints[selectedPoint] = {
-                      ...newPoints[selectedPoint],
-                      color: e.target.value
-                    };
-                    setPoints(newPoints);
-                  }}
+                  onChange={(e) => handleColorChange(selectedPoint, e.target.value)}
                 />
               </div>
 
@@ -699,7 +723,7 @@ export default function MeshGradientEditor() {
                 label="Bend Factor"
                 value={points[selectedPoint].bend}
                 min={0.1}
-                max={6.0}
+                max={12.0}
                 step={0.1}
                 onChange={(value) => {
                   const newPoints = [...points];
