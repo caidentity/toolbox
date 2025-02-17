@@ -465,7 +465,7 @@ export default function MeshGradientEditor() {
     
     points.forEach((point, index) => {
       const x = point.x * canvas.width;
-      const y = point.y * canvas.height;
+      const y = (1 - point.y) * canvas.height;
       
       // Draw origin crosshair with drop shadow
       ctx.save();
@@ -646,7 +646,7 @@ export default function MeshGradientEditor() {
     
     const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
+    const y = 1.0 - ((e.clientY - rect.top) / rect.height);
 
     if (hoverPoint !== null) {
       setSelectedPoint(hoverPoint);
@@ -676,9 +676,10 @@ export default function MeshGradientEditor() {
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     
-    // Get precise cursor position relative to canvas
+    // Calculate normalized coordinates (0-1)
     const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
+    const y = 1.0 - ((e.clientY - rect.top) / rect.height);
+    
     setLastMousePos({ x, y });
 
     // More precise hit detection
@@ -1082,7 +1083,7 @@ export default function MeshGradientEditor() {
                 className="point-origin"
                 style={{
                   left: `${point.x * 100}%`,
-                  top: `${point.y * 100}%`,
+                  top: `${(1 - point.y) * 100}%`,
                   opacity: index === selectedPoint ? 1 : 0.4,
                   zIndex: index === selectedPoint ? 2 : 1
                 }}
