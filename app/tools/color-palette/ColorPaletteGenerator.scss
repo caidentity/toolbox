@@ -406,3 +406,9 @@
     box-shadow: 0 0 0 1px var(--primary);
   }
 }
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

@@ -7,22 +7,8 @@ import { CustomSlider } from '@/components/ui/Slider'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { Menu } from '@/components/ui/Menu'
-
-interface ColorBand {
-  id: number
-  hue: number
-  saturation: number
-  lightness: number
-  steps: number
-  curvePoints: Point[]
-  name: string
-  curveModified?: boolean
-}
-
-interface Point {
-  x: number
-  y: number
-}
+import { ImportModal } from './ImportModal'
+import { ColorBand, Point, StepNameFormat, MenuType } from './types'
 
 // Add this color naming function
 const generateColorName = (hue: number, saturation: number): string => {
@@ -274,12 +260,6 @@ function SettingsCard({
   )
 }
 
-// Add this type near the top with other interfaces
-type StepNameFormat = 'numeric' | 'padded' | 'hex' | 'alphabetic';
-
-// Update MenuType to include export options
-type MenuType = 'stepFormat' | 'export';
-
 export default function ColorPaletteGenerator() {
   const [colorBands, setColorBands] = useState<ColorBand[]>([
     {
@@ -334,6 +314,7 @@ export default function ColorPaletteGenerator() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | undefined>(undefined)
   const [stepFormat, setStepFormat] = useState<StepNameFormat>('numeric')
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false)
 
   // Update state to handle multiple menus
   const [openMenus, setOpenMenus] = useState<{
@@ -583,6 +564,10 @@ export default function ColorPaletteGenerator() {
     ));
     setEditingBandId(null);
   };
+
+  const handleImport = (newBands: ColorBand[]) => {
+    setColorBands(prevBands => [...prevBands, ...newBands])
+  }
 
   return (
     <div className="color-generator">
@@ -871,41 +856,55 @@ export default function ColorPaletteGenerator() {
 
       <div className="main-content">
         <div className="header">
-          <div style={{ position: 'relative' }}>
+          <div className="header-actions">
             <Button
               variant="secondary"
               size="sm"
-              leftIcon="content_copy_24"
-              rightIcon="chevron_down_24"
-              onClick={handleMenuOpen('export')}
+              leftIcon="upload_24"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsImportModalOpen(true);
+              }}
             >
-              Export
+              Import
             </Button>
-            <Menu
-              isOpen={openMenus?.type === 'export'}
-              onClose={handleMenuClose}
-              anchorPoint={openMenus?.type === 'export' ? openMenus.anchor : undefined}
-              items={[
-                {
-                  type: 'default',
-                  label: 'Copy as SCSS',
-                  onClick: () => handleCopyFormat('scss'),
-                  leftIcon: 'content_copy_24'
-                },
-                {
-                  type: 'default',
-                  label: 'Copy as CSS',
-                  onClick: () => handleCopyFormat('css'),
-                  leftIcon: 'content_copy_24'
-                },
-                {
-                  type: 'default',
-                  label: 'Copy as JSON',
-                  onClick: () => handleCopyFormat('json'),
-                  leftIcon: 'content_copy_24'
-                }
-              ]}
-            />
+            <div style={{ position: 'relative' }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon="content_copy_24"
+                rightIcon="chevron_down_24"
+                onClick={handleMenuOpen('export')}
+              >
+                Export
+              </Button>
+              <Menu
+                isOpen={openMenus?.type === 'export'}
+                onClose={handleMenuClose}
+                anchorPoint={openMenus?.type === 'export' ? openMenus.anchor : undefined}
+                items={[
+                  {
+                    type: 'default',
+                    label: 'Copy as SCSS',
+                    onClick: () => handleCopyFormat('scss'),
+                    leftIcon: 'content_copy_24'
+                  },
+                  {
+                    type: 'default',
+                    label: 'Copy as CSS',
+                    onClick: () => handleCopyFormat('css'),
+                    leftIcon: 'content_copy_24'
+                  },
+                  {
+                    type: 'default',
+                    label: 'Copy as JSON',
+                    onClick: () => handleCopyFormat('json'),
+                    leftIcon: 'content_copy_24'
+                  }
+                ]}
+              />
+            </div>
           </div>
         </div>
         
@@ -967,6 +966,17 @@ export default function ColorPaletteGenerator() {
           ))}
         </div>
       </div>
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={(e?: React.MouseEvent) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          setIsImportModalOpen(false);
+        }}
+        onImport={handleImport}
+      />
     </div>
   )
 } 

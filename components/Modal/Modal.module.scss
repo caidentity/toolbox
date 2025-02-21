@@ -1,0 +1,139 @@
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background-color: #ffffff;
+  padding: 1rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modalHeader {
+  width: 100%;
+  padding: 1rem 1.5rem; /* py-4, px-6 */
+  border-bottom: 1px solid #e5e7eb; /* gray-200 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalHeaderLeft {
+  display: flex;
+  align-items: center;
+}
+
+.modalHeaderTitle {
+  font-weight: 600;
+  font-size: 1.125rem; /* text-lg */
+  margin-left: 0.5rem;
+}
+
+.modalHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modalCloseButton {
+  background: none;
+  border: none;
+  color: #9ca3af; /* gray-400 */
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.modalCloseButton:hover {
+  color: #4b5563; /* gray-600 */
+}
+
+.modalBody {
+  flex: 1;
+  padding: 1rem 1.5rem; /* py-4, px-6 */
+  overflow: auto;
+}
+
+.modalFooter {
+  width: 100%;
+  padding: 1rem 1.5rem; /* py-4, px-6 */
+  border-top: 1px solid #e5e7eb; /* gray-200 */
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Alignment helpers for Modal Footer */
+.justifyStart {
+  justify-content: flex-start;
+}
+.justifyCenter {
+  justify-content: center;
+}
+.justifyEnd {
+  justify-content: flex-end;
+}
+
+/* Button styles */
+.modalButton {
+  padding: 0.5rem 1rem; /* py-2, px-4 */
+  border: none;
+  border-radius: 0.375rem; /* rounded */
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.modalButtonSecondary {
+  background-color: #e5e7eb; /* gray-200 */
+  color: #1f2937; /* gray-800 */
+}
+
+.modalButtonSecondary:hover {
+  background-color: #d1d5db; /* gray-300 */
+}
+
+.modalButtonPrimary {
+  background-color: #3b82f6; /* blue-500 */
+  color: #ffffff;
+}
+
+.modalButtonPrimary:hover {
+  background-color: #2563eb; /* blue-600 */
+}
+
+.modalButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Additional custom classes for example usage */
+.modalIcon {
+  margin-right: 1rem;
+}
+
+.modalHeaderButton {
+  background: none;
+  border: none;
+  color: #3b82f6; /* blue-500 */
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.modalHeaderButton:hover {
+  color: #2563eb; /* blue-600 */
+}
+
+.modalFooterText {
+  color: #6b7280; /* gray-500 */
+  font-size: 0.875rem;
+}
