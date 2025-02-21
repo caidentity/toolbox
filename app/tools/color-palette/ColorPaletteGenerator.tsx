@@ -413,6 +413,12 @@ function historyReducer(state: HistoryState, action: Action): HistoryState {
   }
 }
 
+// Add this helper function to compare states
+const isStateEqual = (state1: State, state2: State): boolean => {
+  // Deep comparison of the states
+  return JSON.stringify(state1) === JSON.stringify(state2);
+};
+
 export default function ColorPaletteGenerator() {
   // Replace existing state with useReducer
   const [{ past, present, future }, dispatch] = useReducer(historyReducer, {
@@ -796,6 +802,9 @@ export default function ColorPaletteGenerator() {
     }) as T;
   }
 
+  // Add this to check if current state matches default
+  const hasChanges = !isStateEqual(present, defaultState);
+
   return (
     <div className="color-generator">
       <div className="sidebar">
@@ -1087,6 +1096,8 @@ export default function ColorPaletteGenerator() {
               size="sm"
               leftIcon="refresh_24"
               onClick={() => dispatch({ type: 'RESET' })}
+              disabled={!hasChanges}
+              title={hasChanges ? 'Reset to default state' : 'No changes to reset'}
             >
               Reset
             </Button>
