@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useReducer, useEffect, useMemo } from 'react'
 import CurveEditor from './CurveEditor'
 import './ColorPaletteGenerator.scss'
 import { CustomSlider } from '@/components/ui/Slider'
@@ -214,21 +214,29 @@ interface SettingsCardProps {
   defaultOpen?: boolean
   children: React.ReactNode
   className?: string
+  onToggle?: (isOpen: boolean) => void
 }
 
 function SettingsCard({ 
   title, 
   defaultOpen = true, 
   children,
-  className 
+  className,
+  onToggle 
 }: SettingsCardProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  const handleToggle = () => {
+    const newIsOpen = !isOpen
+    setIsOpen(newIsOpen)
+    onToggle?.(newIsOpen)
+  }
 
   return (
     <div className={cn('settings-card', className)}>
       <div
         className="settings-card-header"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
       >
         <h2>{title}</h2>
         <svg 
@@ -260,8 +268,35 @@ function SettingsCard({
   )
 }
 
-export default function ColorPaletteGenerator() {
-  const [colorBands, setColorBands] = useState<ColorBand[]>([
+// Add these types at the top with other types
+interface State {
+  colorBands: ColorBand[];
+  globalSteps: number;
+  globalSaturation: number | null;
+  globalCurvePoints: Point[] | null;
+  globalSettingsOpen: boolean;
+  bandHeight: number;
+  bandGap: number;
+  showAccessibilityText: boolean;
+  stepFormat: StepNameFormat;
+}
+
+interface HistoryState {
+  past: State[];
+  present: State;
+  future: State[];
+}
+
+// Add action types
+type Action = 
+  | { type: 'UNDO' }
+  | { type: 'REDO' }
+  | { type: 'UPDATE_STATE'; payload: State }
+  | { type: 'RESET' };
+
+// Add default state
+const defaultState: State = {
+  colorBands: [
     {
       id: 1,
       hue: 0,
@@ -300,20 +335,177 @@ export default function ColorPaletteGenerator() {
       { x: 133, y: 50 },
       { x: 200, y: 0 }
     ]},
-  ])
-  
+  ],
+  globalSteps: 12,
+  globalSaturation: null,
+  globalCurvePoints: null,
+  globalSettingsOpen: true,
+  bandHeight: 120,
+  bandGap: 8,
+  showAccessibilityText: false,
+  stepFormat: 'numeric'
+}
+
+// Add reducer function
+function historyReducer(state: HistoryState, action: Action): HistoryState {
+  switch (action.type) {
+    case 'UNDO': {
+      if (state.past.length === 0) return state;
+      const previous = state.past[state.past.length - 1];
+      const newPast = state.past.slice(0, state.past.length - 1);
+      
+      // Ensure we're not creating duplicate states
+      if (JSON.stringify(previous) === JSON.stringify(state.present)) {
+        return state;
+      }
+      
+      return {
+        past: newPast,
+        present: previous,
+        future: [state.present, ...state.future]
+      };
+    }
+    case 'REDO': {
+      if (state.future.length === 0) return state;
+      const next = state.future[0];
+      const newFuture = state.future.slice(1);
+      
+      // Ensure we're not creating duplicate states
+      if (JSON.stringify(next) === JSON.stringify(state.present)) {
+        return {
+          past: state.past,
+          present: state.present,
+          future: newFuture
+        };
+      }
+      
+      return {
+        past: [...state.past, state.present],
+        present: next,
+        future: newFuture
+      };
+    }
+    case 'UPDATE_STATE': {
+      // Don't create a new history entry if the state hasn't actually changed
+      if (JSON.stringify(action.payload) === JSON.stringify(state.present)) {
+        return state;
+      }
+      
+      return {
+        past: [...state.past, state.present],
+        present: action.payload,
+        future: []
+      };
+    }
+    case 'RESET': {
+      if (JSON.stringify(state.present) === JSON.stringify(defaultState)) {
+        return state;
+      }
+      
+      return {
+        past: [],
+        present: defaultState,
+        future: []
+      };
+    }
+    default:
+      return state;
+  }
+}
+
+export default function ColorPaletteGenerator() {
+  // Replace existing state with useReducer
+  const [{ past, present, future }, dispatch] = useReducer(historyReducer, {
+    past: [],
+    present: defaultState,
+    future: []
+  });
+
+  // Extract all managed states from present
+  const {
+    colorBands,
+    globalSteps,
+    globalSaturation,
+    globalCurvePoints,
+    globalSettingsOpen,
+    bandHeight,
+    bandGap,
+    showAccessibilityText,
+    stepFormat
+  } = present;
+
+  // Add useEffect for keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) {
+          // Ctrl/Cmd + Shift + Z = Redo
+          dispatch({ type: 'REDO' });
+        } else {
+          // Ctrl/Cmd + Z = Undo
+          dispatch({ type: 'UNDO' });
+        }
+        e.preventDefault();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        // Ctrl/Cmd + Y = Redo
+        dispatch({ type: 'REDO' });
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Update state management functions
+  const updateState = (updates: Partial<State>) => {
+    dispatch({
+      type: 'UPDATE_STATE',
+      payload: { ...present, ...updates }
+    });
+  };
+
+  // Update existing state setters
+  const setColorBands = (newBands: ColorBand[]) => {
+    updateState({ colorBands: newBands });
+  };
+
+  const setGlobalSteps = (steps: number) => {
+    updateState({ globalSteps: steps });
+  };
+
+  const setGlobalSaturation = (saturation: number | null) => {
+    updateState({ globalSaturation: saturation });
+  };
+
+  const setGlobalCurvePoints = (points: Point[] | null) => {
+    updateState({ globalCurvePoints: points });
+  };
+
+  const setGlobalSettingsOpen = (isOpen: boolean) => {
+    updateState({ globalSettingsOpen: isOpen });
+  };
+
+  const setBandHeight = (height: number) => {
+    updateState({ bandHeight: height });
+  };
+
+  const setBandGap = (gap: number) => {
+    updateState({ bandGap: gap });
+  };
+
+  const setShowAccessibilityText = (show: boolean) => {
+    updateState({ showAccessibilityText: show });
+  };
+
+  const setStepFormat = (format: StepNameFormat) => {
+    updateState({ stepFormat: format });
+  };
+
   const [activeTab, setActiveTab] = useState(1)
-  const [globalSteps, setGlobalSteps] = useState(12)
-  const [globalSaturation, setGlobalSaturation] = useState<number | null>(null)
-  const [bandHeight, setBandHeight] = useState(120)
-  const [bandGap, setBandGap] = useState(8)
-  const [showAccessibilityText, setShowAccessibilityText] = useState(false)
-  const [globalCurvePoints, setGlobalCurvePoints] = useState<Point[] | null>(null)
-  const [globalSettingsOpen, setGlobalSettingsOpen] = useState(true)
   const [bandSettingsOpen, setBandSettingsOpen] = useState(true)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | undefined>(undefined)
-  const [stepFormat, setStepFormat] = useState<StepNameFormat>('numeric')
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false)
 
   // Update state to handle multiple menus
@@ -386,16 +578,16 @@ export default function ColorPaletteGenerator() {
   }
 
   const addColorBand = () => {
-    const newId = Math.max(...colorBands.map(b => b.id)) + 1
-    const newHue = Math.floor(Math.random() * 360)
-    const newSaturation = 100
+    const newId = Math.max(...colorBands.map(b => b.id)) + 1;
+    const newHue = Math.floor(Math.random() * 360);
+    const newSaturation = 100;
     
-    setColorBands([...colorBands, {
+    const newBands = [...colorBands, {
       id: newId,
       hue: newHue,
       saturation: newSaturation,
       lightness: 50,
-      steps: 12,
+      steps: globalSteps,
       name: generateColorName(newHue, newSaturation),
       curvePoints: [
         { x: 0, y: 150 },
@@ -403,46 +595,57 @@ export default function ColorPaletteGenerator() {
         { x: 133, y: 50 },
         { x: 200, y: 0 }
       ]
-    }])
-  }
+    }];
+    
+    updateState({ colorBands: newBands });
+  };
 
   const removeColorBand = (id: number) => {
-    setColorBands(colorBands.filter(band => band.id !== id))
-  }
+    const updatedBands = colorBands.filter(band => band.id !== id);
+    updateState({ colorBands: updatedBands });
+  };
 
   const updateBand = (id: number, property: keyof ColorBand, value: number) => {
-    setColorBands(colorBands.map(band => {
+    const updatedBands = colorBands.map(band => {
       if (band.id === id) {
-        const updatedBand = { ...band, [property]: value }
-        // Regenerate name if hue or saturation changes
+        const updatedBand = { ...band, [property]: value };
+        // Only regenerate name if hue or saturation changes
         if (property === 'hue' || property === 'saturation') {
-          updatedBand.name = generateColorName(updatedBand.hue, updatedBand.saturation)
+          updatedBand.name = generateColorName(updatedBand.hue, updatedBand.saturation);
         }
-        return updatedBand
+        return updatedBand;
       }
-      return band
-    }))
-  }
+      return band;
+    });
+    
+    // Update state through the history management
+    updateState({ colorBands: updatedBands });
+  };
 
   const handleCurveChange = (bandId: number, newPoints: Point[]) => {
-    setColorBands(colorBands.map(band => 
-      band.id === bandId 
-        ? { ...band, curvePoints: newPoints, curveModified: true } 
+    const updatedBands = colorBands.map(band =>
+      band.id === bandId
+        ? { ...band, curvePoints: newPoints, curveModified: true }
         : band
-    ))
-  }
+    );
+    updateState({ colorBands: updatedBands });
+  };
 
   const updateGlobalSteps = (steps: number) => {
-    setGlobalSteps(steps)
-    setColorBands(colorBands.map(band => ({
+    const updatedBands = colorBands.map(band => ({
       ...band,
       steps
-    })))
-  }
+    }));
+    
+    updateState({
+      globalSteps: steps,
+      colorBands: updatedBands
+    });
+  };
 
   const resetGlobalSaturation = () => {
     setGlobalSaturation(null)
-  }
+  };
 
   const activeBand = colorBands.find(band => band.id === activeTab)
 
@@ -559,135 +762,139 @@ export default function ColorPaletteGenerator() {
   };
 
   const saveBandName = (id: number) => {
-    setColorBands(colorBands.map(band => 
+    const updatedBands = colorBands.map(band => 
       band.id === id ? { ...band, name: editingName } : band
-    ));
+    );
+    updateState({ colorBands: updatedBands });
     setEditingBandId(null);
   };
 
   const handleImport = (newBands: ColorBand[]) => {
-    setColorBands(prevBands => [...prevBands, ...newBands])
+    setColorBands([...colorBands, ...newBands]);
+  };
+
+  // Add debounced curve change to reduce history states
+  const debouncedCurveChange = useMemo(
+    () => debounce(handleCurveChange, 100),
+    [colorBands]
+  );
+
+  // Update CurveEditor usage to use debounced handler
+  const handleCurveUpdate = (bandId: number, newPoints: Point[]) => {
+    debouncedCurveChange(bandId, newPoints);
+  };
+
+  // Helper function to debounce updates
+  function debounce<T extends (...args: any[]) => void>(
+    func: T,
+    wait: number
+  ): T {
+    let timeout: NodeJS.Timeout;
+    return ((...args: Parameters<T>) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), wait);
+    }) as T;
   }
 
   return (
     <div className="color-generator">
       <div className="sidebar">
-      <h2>Pallete Generator</h2>
-        <div className="settings-card">
-          <div className="settings-card-header">
-            <div className="settings-card-toggle" onClick={() => setGlobalSettingsOpen(!globalSettingsOpen)}>
-              <h2>Global Settings</h2>
-              <div className="settings-card-controls">
-                <svg 
-                  className={cn('settings-card-chevron', globalSettingsOpen && 'rotate')}
-                  width="16" 
-                  height="16" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2"
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div className={cn(
-            'settings-card-content',
-            globalSettingsOpen ? 'settings-card-open' : 'settings-card-closed'
-          )}>
-            <SettingControl
-              label="Global Steps"
-              value={globalSteps}
-              min={2}
-              max={20}
-              onChange={updateGlobalSteps}
-            />
-            
-            <SettingControl
-              label="Global Saturation"
-              value={globalSaturation ?? 100}
-              min={0}
-              max={100}
-              unit="%"
-              onChange={setGlobalSaturation}
-              onReset={resetGlobalSaturation}
-            />
-            
-            <div style={{ position: 'relative' }}>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon="format_list_numbered_24"
-                rightIcon="chevron_down_24"
-                onClick={handleMenuOpen('stepFormat')}
-              >
-                Step Format: {stepFormat}
-              </Button>
-              <Menu
-                isOpen={openMenus?.type === 'stepFormat'}
-                onClose={handleMenuClose}
-                anchorPoint={openMenus?.type === 'stepFormat' ? openMenus.anchor : undefined}
-                items={[
-                  {
-                    type: 'default',
-                    label: 'Numeric (1, 2, 3)',
-                    onClick: () => handleStepFormatChange('numeric'),
-                    leftIcon: stepFormat === 'numeric' ? 'check_24' : undefined,
-                  },
-                  {
-                    type: 'default',
-                    label: 'Padded (001, 002, 003)',
-                    onClick: () => handleStepFormatChange('padded'),
-                    leftIcon: stepFormat === 'padded' ? 'check_24' : undefined,
-                  },
-                  {
-                    type: 'default',
-                    label: 'Hexadecimal (1, 2, ..., A, B)',
-                    onClick: () => handleStepFormatChange('hex'),
-                    leftIcon: stepFormat === 'hex' ? 'check_24' : undefined,
-                  },
-                  {
-                    type: 'default',
-                    label: 'Alphabetic (A, B, C)',
-                    onClick: () => handleStepFormatChange('alphabetic'),
-                    leftIcon: stepFormat === 'alphabetic' ? 'check_24' : undefined,
-                  },
-                ]}
-              />
-            </div>
+        <h2>Palette Generator</h2>
+        
+        <SettingsCard 
+          title="Global Settings" 
+          defaultOpen={globalSettingsOpen}
+          onToggle={(isOpen) => setGlobalSettingsOpen(isOpen)}
+        >
+          <SettingControl
+            label="Global Steps"
+            value={globalSteps}
+            min={2}
+            max={20}
+            onChange={setGlobalSteps}
+          />
+          
+          <SettingControl
+            label="Global Saturation"
+            value={globalSaturation ?? 100}
+            min={0}
+            max={100}
+            unit="%"
+            onChange={setGlobalSaturation}
+            onReset={() => setGlobalSaturation(null)}
+          />
 
-            <div className="control-group">
-              <div className="control-header">
-                <label>Global Lightness Curve</label>
-                {globalCurvePoints && (
-                  <div className="value-controls">
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => setGlobalCurvePoints(null)}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <CurveEditor
-                width={200}
-                height={150}
-                points={globalCurvePoints || [
-                  { x: 0, y: 150 },
-                  { x: 66, y: 100 },
-                  { x: 133, y: 50 },
-                  { x: 200, y: 0 }
-                ]}
-                onChange={setGlobalCurvePoints}
-              />
-            </div>
+          <div style={{ position: 'relative' }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon="format_list_numbered_24"
+              rightIcon="chevron_down_24"
+              onClick={handleMenuOpen('stepFormat')}
+            >
+              Step Format: {stepFormat}
+            </Button>
+            <Menu
+              isOpen={openMenus?.type === 'stepFormat'}
+              onClose={handleMenuClose}
+              anchorPoint={openMenus?.type === 'stepFormat' ? openMenus.anchor : undefined}
+              items={[
+                {
+                  type: 'default',
+                  label: 'Numeric (1, 2, 3)',
+                  onClick: () => handleStepFormatChange('numeric'),
+                  leftIcon: stepFormat === 'numeric' ? 'check_24' : undefined,
+                },
+                {
+                  type: 'default',
+                  label: 'Padded (001, 002, 003)',
+                  onClick: () => handleStepFormatChange('padded'),
+                  leftIcon: stepFormat === 'padded' ? 'check_24' : undefined,
+                },
+                {
+                  type: 'default',
+                  label: 'Hexadecimal (1, 2, ..., A, B)',
+                  onClick: () => handleStepFormatChange('hex'),
+                  leftIcon: stepFormat === 'hex' ? 'check_24' : undefined,
+                },
+                {
+                  type: 'default',
+                  label: 'Alphabetic (A, B, C)',
+                  onClick: () => handleStepFormatChange('alphabetic'),
+                  leftIcon: stepFormat === 'alphabetic' ? 'check_24' : undefined,
+                },
+              ]}
+            />
           </div>
-        </div>
+
+          <div className="control-group">
+            <div className="control-header">
+              <label>Global Lightness Curve</label>
+              {globalCurvePoints && (
+                <div className="value-controls">
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => setGlobalCurvePoints(null)}
+                  >
+                    Reset
+                  </Button>
+                </div>
+              )}
+            </div>
+            <CurveEditor
+              width={200}
+              height={150}
+              points={globalCurvePoints || [
+                { x: 0, y: 150 },
+                { x: 66, y: 100 },
+                { x: 133, y: 50 },
+                { x: 200, y: 0 }
+              ]}
+              onChange={setGlobalCurvePoints}
+            />
+          </div>
+        </SettingsCard>
 
         <div className="band-tabs">
           {colorBands.map(band => (
@@ -813,7 +1020,7 @@ export default function ColorPaletteGenerator() {
                   width={200}
                   height={150}
                   points={activeBand.curvePoints}
-                  onChange={(newPoints) => handleCurveChange(activeBand.id, newPoints)}
+                  onChange={(newPoints) => handleCurveUpdate(activeBand.id, newPoints)}
                 />
               </div>
             </div>
@@ -860,12 +1067,34 @@ export default function ColorPaletteGenerator() {
             <Button
               variant="secondary"
               size="sm"
+              leftIcon="undo_24"
+              onClick={() => dispatch({ type: 'UNDO' })}
+              disabled={past.length === 0}
+            >
+              Undo
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon="redo_24"
+              onClick={() => dispatch({ type: 'REDO' })}
+              disabled={future.length === 0}
+            >
+              Redo
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon="refresh_24"
+              onClick={() => dispatch({ type: 'RESET' })}
+            >
+              Reset
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               leftIcon="upload_24"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsImportModalOpen(true);
-              }}
+              onClick={() => setIsImportModalOpen(true)}
             >
               Import
             </Button>

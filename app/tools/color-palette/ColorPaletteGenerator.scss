@@ -411,4 +411,15 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  
+  button {
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      
+      &:hover {
+        background-color: var(--secondary);
+      }
+    }
+  }
 }
