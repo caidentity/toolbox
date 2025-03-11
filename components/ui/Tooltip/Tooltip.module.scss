@@ -1,0 +1,126 @@
+// Tooltip container
+.tooltipContainer {
+  position: relative;
+  display: inline-block;
+}
+
+// Tooltip element
+.tooltip {
+  position: absolute;
+  z-index: 9999;
+  min-width: 180px;
+  max-width: 350px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  transition: opacity 0.2s, visibility 0.2s;
+  word-break: break-word;
+  
+  // Default styles
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  
+  // Hidden by default
+  opacity: 0;
+  visibility: hidden;
+}
+
+// Tooltip variants
+.light {
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #eaeaea;
+}
+
+.dark {
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+}
+
+.primary {
+  background-color: #3f51b5;
+  color: #fff;
+}
+
+.success {
+  background-color: #4caf50;
+  color: #fff;
+}
+
+.warning {
+  background-color: #ff9800;
+  color: #fff;
+}
+
+.error {
+  background-color: #f44336;
+  color: #fff;
+}
+
+// Arrow styles
+.arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+// Positioning variants
+.top {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  
+  .arrow {
+    bottom: -4px;
+    left: calc(50% - 4px);
+  }
+}
+
+.bottom {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  
+  .arrow {
+    top: -4px;
+    left: calc(50% - 4px);
+  }
+}
+
+.left {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(-8px);
+  
+  .arrow {
+    right: -4px;
+    top: calc(50% - 4px);
+  }
+}
+
+.right {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(8px);
+  
+  .arrow {
+    left: -4px;
+    top: calc(50% - 4px);
+  }
+}
+
+// Visibility states
+.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
