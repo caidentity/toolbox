@@ -9,6 +9,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell, TableFoo
 import Button from '@/components/ui/Button';
 import './StockReview.css';
 import Tooltip from '@/components/ui/Tooltip';
+import SummarySection from './SummarySection';
 
 // Define simplified grant types - only new hire and annual
 type GrantType = 'newHire' | 'annual';
@@ -616,175 +617,21 @@ const StockReviewCalculator: React.FC = () => {
           </div>
           
           {/* Summary section */}
-          <div className="summary-section">
-            <h3 className="summary-title">Summary</h3>
-            <div className="summary-grid">
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  Base Salary
-                  <Tooltip
-                    content="Your annual base compensation before any additional benefits or equity"
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">{formatCurrency(baseSalary)}</div>
-              </div>
-              
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  New Hire Grant
-                  <Tooltip
-                    content="The initial equity grant offered when joining the company"
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">{showNewHireGrants ? formatCurrency(newHireGrant.value) : '$0'}</div>
-              </div>
-              
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  Total Grant Value
-                  <Tooltip
-                    content="The combined value of all equity grants (new hire and annual)"
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">{formatCurrency(totalGrantValue)}</div>
-              </div>
-              
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  Stock Growth Rate
-                  <Tooltip
-                    content="The annual percentage increase in stock value used for calculations"
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">{stockGrowthRate}% per year</div>
-              </div>
-              
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  Bonus Rate
-                  <Tooltip
-                    content="The annual bonus as a percentage of base salary"
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">
-                  {includeBonuses ? `${bonusPercent}% of Salary` : 'Disabled'}
-                </div>
-              </div>
-              
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  Total Stock Growth Value
-                  <Tooltip
-                    content="The additional value generated from stock price appreciation over the entire period"
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">
-                  {formatCurrency(
-                    getCumulativeTotal(projectionYears - 1) - 
-                    (baseSalary * projectionYears + totalGrantValue + 
-                     (includeBonuses ? (treatBonusesAsEquity ? 0 : getCumulativeBonuses(projectionYears - 1)) : 0))
-                  )}
-                </div>
-              </div>
-              
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  Cumulative Equity (Base)
-                  <Tooltip
-                    content="The total equity value vested over the entire period without stock growth"
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">
-                  {formatCurrency(
-                    yearlyBreakdown[yearlyBreakdown.length - 1]?.cumulativeVested || 0 + 
-                    (includeBonuses && treatBonusesAsEquity ? getCumulativeBonuses(projectionYears - 1) : 0)
-                  )}
-                </div>
-              </div>
-              
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  Cumulative Equity (w/ Growth)
-                  <Tooltip
-                    content="The total equity value vested over the entire period with stock growth factored in"
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">
-                  {formatCurrency(
-                    getCumulativeTotal(projectionYears - 1) - 
-                    (baseSalary * projectionYears + 
-                     (includeBonuses ? (treatBonusesAsEquity ? 0 : getCumulativeBonuses(projectionYears - 1)) : 0))
-                  )}
-                </div>
-              </div>
-              
-              <div className="summary-item">
-                <div className="summary-item-label">
-                  Cumulative Total ({projectionYears} years)
-                  <Tooltip
-                    content={`The total compensation package over ${projectionYears} years, including salary, equity, and bonuses (if enabled)`}
-                    position="top"
-                    variant="light"
-                    minWidth={200}
-                    maxWidth={300}
-                  >
-                    <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                  </Tooltip>
-                </div>
-                <div className="summary-item-value">
-                  {formatCurrency(getCumulativeTotal(projectionYears - 1))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <SummarySection 
+            baseSalary={baseSalary}
+            showNewHireGrants={showNewHireGrants}
+            newHireGrantValue={newHireGrant.value}
+            totalGrantValue={totalGrantValue}
+            stockGrowthRate={stockGrowthRate}
+            includeBonuses={includeBonuses}
+            bonusPercent={bonusPercent}
+            projectionYears={projectionYears}
+            treatBonusesAsEquity={treatBonusesAsEquity}
+            formatCurrency={formatCurrency}
+            getCumulativeTotal={getCumulativeTotal}
+            getCumulativeBonuses={getCumulativeBonuses}
+            yearlyBreakdown={yearlyBreakdown}
+          />
           
           {/* Restructured Results Table */}
           <div className="enhanced-table-container">
