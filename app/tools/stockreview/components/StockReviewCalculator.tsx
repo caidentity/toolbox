@@ -89,11 +89,11 @@ const StockReviewCalculator: React.FC = () => {
     if (showAnnualGrants) {
       let currentSalary = baseSalary;
       
-      console.log(`Generating grants up to year ${Math.min(projectionYears, leavingYear) - 1} (Leaving year: ${leavingYear})`);
+      console.log(`Generating grants up to year ${Math.min(projectionYears, leavingYear - 1)} (Leaving year: ${leavingYear})`);
       
-      // Generate annual grants for each year, but only up to one year before the leaving year
-      // If you leave after year 4, you don't get the annual grant for year 4
-      for (let year = 1; year < Math.min(projectionYears, leavingYear - 1); year++) {
+      // Generate annual grants for each year, up to (but not including) the leaving year
+      // We want annual grants for years before the leaving year
+      for (let year = 1; year < Math.min(projectionYears, leavingYear); year++) {
         // Calculate salary for this year with growth
         currentSalary = baseSalary * Math.pow(1 + salaryGrowth / 100, year);
         
@@ -139,12 +139,12 @@ const StockReviewCalculator: React.FC = () => {
     let currentSalary = baseSalary;
     
     for (let year = 0; year < projectionYears; year++) {
-      // After leaving year, salary doesn't increase
-      if (year > 0 && year < leavingYear - 1) {
+      // Only apply salary increases for years before the leaving year
+      if (year > 0 && year < leavingYear) {
         currentSalary = baseSalary * Math.pow(1 + salaryGrowth / 100, year);
-      } else if (year >= leavingYear - 1) {
-        // After leaving, salary stays the same as the last year before leaving
-        currentSalary = baseSalary * Math.pow(1 + salaryGrowth / 100, leavingYear - 2);
+      } else if (year >= leavingYear) {
+        // After or at leaving year, set salary to 0 (no more salary)
+        currentSalary = 0;
       }
       
       // Calculate vesting amount for this year from all grants
@@ -153,19 +153,21 @@ const StockReviewCalculator: React.FC = () => {
       // Get all grants that apply to this year
       let yearGrants: Grant[] = [];
       
-      // Add new hire grants to year 0 if they exist and only if before leaving year
-      if (year === 0 && showNewHireGrants && year < leavingYear) {
+      // Add new hire grants to year 0 if they exist
+      if (year === 0 && showNewHireGrants) {
         yearGrants.push(newHireGrant);
       }
       
-      // Add all other grants that start in this year
-      yearGrants = [...yearGrants, ...allGrants.filter(g => g.startYear === year && g.type !== 'newHire')];
+      // Add all other grants that start in this year (but only if year < leavingYear)
+      if (year < leavingYear) {
+        yearGrants = [...yearGrants, ...allGrants.filter(g => g.startYear === year && g.type !== 'newHire')];
+      }
       
       // Calculate vesting for all grants
       for (const grant of allGrants) {
         // If this year is in the vesting period for this grant
         const grantAge = year - grant.startYear;
-        if (grantAge >= 0 && grantAge < grant.vestingYears) {
+        if (grantAge >= 0 && grantAge < grant.vestingYears && grant.startYear < leavingYear) {
           // Simple linear vesting (equal amounts per year)
           vestingAmount += grant.value / grant.vestingYears;
         }
@@ -190,8 +192,10 @@ const StockReviewCalculator: React.FC = () => {
   
   const yearlyBreakdown = calculateYearlyBreakdown();
   
-  // Calculate total grant value
-  const totalGrantValue = allGrants.reduce((sum, grant) => sum + grant.value, 0);
+  // Calculate total grant value - only count grants before leaving year
+  const totalGrantValue = allGrants
+    .filter(grant => grant.startYear < leavingYear)
+    .reduce((sum, grant) => sum + grant.value, 0);
   
   // Format currency for display
   const formatCurrency = (amount: number): string => {
@@ -204,6 +208,11 @@ const StockReviewCalculator: React.FC = () => {
   
   // Helper function to calculate vesting amount for a specific grant in a specific year
   const getVestingForGrantInYear = (grant: Grant, year: number): number => {
+    // Skip grants that start after or in the leaving year
+    if (grant.startYear >= leavingYear) {
+      return 0;
+    }
+    
     const grantAge = year - grant.startYear;
     
     if (grantAge >= 0 && grantAge < grant.vestingYears) {
@@ -215,15 +224,22 @@ const StockReviewCalculator: React.FC = () => {
   
   // Calculate the total vesting amount for a specific year (without growth)
   const getTotalVestingForYear = (year: number): number => {
-    return allGrants.reduce((sum, grant) => sum + getVestingForGrantInYear(grant, year), 0);
+    return allGrants
+      .filter(grant => grant.startYear < leavingYear) // Only consider grants before leaving year
+      .reduce((sum, grant) => sum + getVestingForGrantInYear(grant, year), 0);
   };
   
   // Calculate the growth-adjusted value for a grant in a specific year
   const getGrowthAdjustedValueForGrant = (grant: Grant, year: number): number => {
+    // Skip grants that start after or in the leaving year
+    if (grant.startYear >= leavingYear) {
+      return 0;
+    }
+    
     const grantAge = year - grant.startYear;
     
-    // If grant hasn't started yet or has fully vested, or if the grant should be received after the leaving year
-    if (grantAge < 0 || grantAge >= grant.vestingYears || grant.startYear >= leavingYear - 1) {
+    // If grant hasn't started yet or has fully vested
+    if (grantAge < 0 || grantAge >= grant.vestingYears) {
       return 0;
     }
     
@@ -241,27 +257,29 @@ const StockReviewCalculator: React.FC = () => {
   
   // Get total growth-adjusted vesting for a specific year
   const getGrowthAdjustedVestingForYear = (year: number): number => {
-    return allGrants.reduce((sum, grant) => sum + getGrowthAdjustedValueForGrant(grant, year), 0);
+    return allGrants
+      .filter(grant => grant.startYear < leavingYear) // Only consider grants before leaving year
+      .reduce((sum, grant) => sum + getGrowthAdjustedValueForGrant(grant, year), 0);
   };
   
   // Calculate the total per year including salary and growth-adjusted vesting
   const getTotalPerYear = (year: number): number => {
-    // After leaving year, only include growth-adjusted equity, no salary or bonuses
-    if (year >= leavingYear) {
-      return getGrowthAdjustedVestingForYear(year);
-    }
+    // Calculate salary based on whether we're before or after the leaving year
+    const salaryInYear = year >= leavingYear ? 0 : baseSalary * Math.pow(1 + salaryGrowth / 100, year);
     
-    const yearIndex = year; // The year is already 0-indexed at this point
-    const salaryInYear = baseSalary * Math.pow(1 + salaryGrowth / 100, yearIndex);
+    // Get vesting amount - vesting continues after leaving as long as the grant was issued before leaving
     const vestingInYear = getGrowthAdjustedVestingForYear(year);
-    const bonusInYear = getBonusForYear(year);
+    
+    // Get bonus - only applies up to leaving year
+    const bonusInYear = year >= leavingYear ? 0 : getGrowthAdjustedBonusForYear(year);
+    
     return salaryInYear + vestingInYear + bonusInYear;
   };
   
   // Calculate bonus for a specific year
   const getBonusForYear = (year: number): number => {
     // No bonuses after leaving year, or if bonuses are disabled
-    if (!includeBonuses || year > leavingYear - 1) {
+    if (!includeBonuses || year >= leavingYear) {
       return 0;
     }
     
@@ -285,7 +303,7 @@ const StockReviewCalculator: React.FC = () => {
     
     let totalBonus = 0;
     // Calculate all previous years' bonuses with compound growth
-    for (let i = 0; i < year; i++) {
+    for (let i = 0; i < Math.min(year + 1, leavingYear); i++) {
       // Get the bonus from previous years (already given)
       const salaryInYear = baseSalary * Math.pow(1 + salaryGrowth / 100, i);
       const yearlyBonus = salaryInYear * (bonusPercent / 100);
@@ -297,12 +315,7 @@ const StockReviewCalculator: React.FC = () => {
       totalBonus += yearlyBonus * growthFactor;
     }
     
-    // Add current year's bonus (which hasn't had time to grow yet)
-    if (year <= leavingYear - 1) {
-      const currentSalary = baseSalary * Math.pow(1 + salaryGrowth / 100, year);
-      const currentYearBonus = currentSalary * (bonusPercent / 100);
-      totalBonus += currentYearBonus;
-    }
+    // No need to add current year's bonus separately - it's included in the loop above
     
     return totalBonus;
   };
@@ -315,7 +328,12 @@ const StockReviewCalculator: React.FC = () => {
     
     let total = 0;
     for (let i = 0; i <= year; i++) {
-      total += getBonusForYear(i);
+      // Use growth-adjusted bonuses if treating bonuses as equity, otherwise use regular bonuses
+      if (treatBonusesAsEquity) {
+        total += getGrowthAdjustedBonusForYear(i);
+      } else {
+        total += getBonusForYear(i);
+      }
     }
     return total;
   };
@@ -326,7 +344,12 @@ const StockReviewCalculator: React.FC = () => {
       return getCumulativeBonuses(year);
     }
     
-    return getGrowthAdjustedBonusForYear(year);
+    // Accumulate growth-adjusted bonuses for each year
+    let total = 0;
+    for (let i = 0; i <= year; i++) {
+      total += getGrowthAdjustedBonusForYear(i);
+    }
+    return total;
   };
   
   // Calculate cumulative total (salary + vesting) up to a specific year
@@ -345,7 +368,7 @@ const StockReviewCalculator: React.FC = () => {
   const annualGrants = allGrants.filter(grant => grant.type === 'annual' && grant.startYear < leavingYear);
   
   console.log('All grants:', allGrants);
-  console.log('Filtered annual grants (should only show before leaving year):', annualGrants);
+  console.log('Filtered annual grants (should only show up to leaving year):', annualGrants);
   
   return (
     <Card className="w-full">
@@ -377,7 +400,7 @@ const StockReviewCalculator: React.FC = () => {
                   <Label htmlFor="leavingYear">
                     Leaving Year
                     <Tooltip
-                      content="The year after which you leave the company. You won't receive new grants or salary increases for this year or beyond, but existing grants continue vesting"
+                      content="The last year you work at the company. You will receive salary and bonus in this year, but not beyond. Annual grants are only issued before this year. Existing grants continue vesting with stock growth after leaving."
                       position="top"
                       variant="light"
                       minWidth={250}
@@ -421,7 +444,6 @@ const StockReviewCalculator: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          
           {/* Editor grid layout - all filters on one row */}
           <div className="grid-editor">
             {/* Salary section */}
@@ -785,7 +807,7 @@ const StockReviewCalculator: React.FC = () => {
                   {years.map(year => {
                     // Adjust calculation to account for 1-indexed years in display
                     const yearIndex = year - 1;
-                    // Only show salary up to leaving year
+                    // Only show salary up to leaving year (strictly)
                     const salaryInYear = yearIndex >= leavingYear 
                       ? 0 
                       : baseSalary * Math.pow(1 + salaryGrowth / 100, yearIndex);
@@ -824,7 +846,9 @@ const StockReviewCalculator: React.FC = () => {
                         const salaryInYear = baseSalary * Math.pow(1 + salaryGrowth / 100, yearIndex);
                         const currentYearBonus = salaryInYear * (bonusPercent / 100);
                         const growthAdjustedValue = getGrowthAdjustedBonusForYear(yearIndex);
-                        const growthAmount = growthAdjustedValue - getCumulativeBonuses(yearIndex);
+                        // Calculate the growth only for the current year's bonus
+                        const previousYearsCumulativeBonus = yearIndex > 0 ? getCumulativeBonuses(yearIndex - 1) : 0;
+                        const growthAmount = growthAdjustedValue - (previousYearsCumulativeBonus + currentYearBonus);
                         
                         const tooltipContent = (
                           <div className="tooltip-calculation">
@@ -904,4 +928,369 @@ const StockReviewCalculator: React.FC = () => {
                       }
                       
                       return (
-                        <TableCell key={`
+                        <TableCell key={`newhire-${year}`} className="text-right table-text-sm">
+                          {formatCurrency(growthAdjustedValue)}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                )}
+                
+                {/* Annual Grant Rows */}
+                {showAnnualGrants && annualGrants.map(grant => (
+                  <TableRow key={grant.id}>
+                    <TableCell className="font-medium">
+                      {grant.name}
+                      <div className="text-xs text-gray-500 mt-1">
+                        ({formatCurrency(grant.value)} over {grant.vestingYears} years)
+                      </div>
+                    </TableCell>
+                    {years.map(year => {
+                      const yearIndex = year - 1;
+                      // Skip computation for grants that start at or after leaving year
+                      if (grant.startYear >= leavingYear) {
+                        return (
+                          <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
+                            —
+                          </TableCell>
+                        );
+                      }
+                      
+                      const baseValue = getVestingForGrantInYear(grant, yearIndex);
+                      const growthAdjustedValue = getGrowthAdjustedValueForGrant(grant, yearIndex);
+                      const showGrowth = baseValue > 0 && growthAdjustedValue > baseValue;
+                      
+                      if (baseValue > 0) {
+                        const tooltipContent = (
+                          <div className="tooltip-calculation">
+                            <div>Base Vesting: {formatCurrency(baseValue)}</div>
+                            <div>Growth Rate: {stockGrowthRate}%</div>
+                            {showGrowth && (
+                              <div>Growth Amount: +{formatCurrency(growthAdjustedValue - baseValue)}</div>
+                            )}
+                            <div>Total Value: {formatCurrency(growthAdjustedValue)}</div>
+                          </div>
+                        );
+                        
+                        return (
+                          <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
+                            <Tooltip
+                              content={tooltipContent}
+                              position="top"
+                              variant="light"
+                              minWidth={250}
+                              maxWidth={350}
+                            >
+                              <span className="cursor-help">{formatCurrency(growthAdjustedValue)}</span>
+                            </Tooltip>
+                          </TableCell>
+                        );
+                      }
+                      
+                      return (
+                        <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
+                          {formatCurrency(growthAdjustedValue)}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+              
+              <TableFooter>
+                <TableRow className="footer-row">
+                  <TableCell>
+                    Total Vesting Per Year (Base)
+                    <Tooltip
+                      content="The total dollar amount of equity vesting each year without growth factored in"
+                      position="right"
+                      variant="light"
+                      minWidth={250}
+                      maxWidth={350}
+                    >
+                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                    </Tooltip>
+                  </TableCell>
+                  {years.map(year => (
+                    <TableCell key={`total-base-${year}`} className="text-right">
+                      {formatCurrency(getTotalVestingForYear(year - 1))}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow className="footer-row">
+                  <TableCell>
+                    Total Vesting Per Year (w/ Growth)
+                    <Tooltip
+                      content="The total dollar amount of equity vesting each year with stock price growth factored in"
+                      position="right"
+                      variant="light"
+                      minWidth={250}
+                      maxWidth={350}
+                    >
+                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                    </Tooltip>
+                  </TableCell>
+                  {years.map(year => {
+                    const baseValue = getTotalVestingForYear(year - 1);
+                    const growthValue = getGrowthAdjustedVestingForYear(year - 1);
+                    const growthDiff = growthValue - baseValue;
+                    
+                    const tooltipContent = (
+                      <div className="tooltip-calculation">
+                        <div>Base Vesting: {formatCurrency(baseValue)}</div>
+                        <div>Growth Rate: {stockGrowthRate}%</div>
+                        {growthDiff > 0 && (
+                          <div>Growth Amount: +{formatCurrency(growthDiff)}</div>
+                        )}
+                        <div>Total Value: {formatCurrency(growthValue)}</div>
+                      </div>
+                    );
+                    
+                    return (
+                      <TableCell key={`total-growth-${year}`} className="text-right">
+                        <Tooltip
+                          content={tooltipContent}
+                          position="top"
+                          variant="light"
+                          minWidth={250}
+                          maxWidth={350}
+                        >
+                          <span className="cursor-help">{formatCurrency(growthValue)}</span>
+                        </Tooltip>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+                {showCumulativeValue && (
+                  <>
+                    <TableRow className="footer-row">
+                      <TableCell>
+                        Cumulative Equity (Base)
+                        <Tooltip
+                          content="The running total of all equity that has vested to date, without stock price growth factored in"
+                          position="right"
+                          variant="light"
+                          minWidth={250}
+                          maxWidth={350}
+                        >
+                          <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                        </Tooltip>
+                      </TableCell>
+                      {years.map(year => {
+                        // Calculate base vested equity
+                        const baseEquity = yearlyBreakdown[year - 1]?.cumulativeVested || 0;
+                        // Include bonuses as equity if option is enabled
+                        const bonusAsEquity = (includeBonuses && treatBonusesAsEquity) 
+                          ? getCumulativeBonuses(year - 1) 
+                          : 0;
+                        const totalValue = baseEquity + bonusAsEquity;
+                        
+                        const tooltipContent = (
+                          <div className="tooltip-calculation">
+                            <div>Base Equity: {formatCurrency(baseEquity)}</div>
+                            {bonusAsEquity > 0 && (
+                              <div>Bonus as Equity: {formatCurrency(bonusAsEquity)}</div>
+                            )}
+                            <div>Total Value: {formatCurrency(totalValue)}</div>
+                          </div>
+                        );
+                        
+                        return (
+                          <TableCell key={`cumulative-base-${year}`} className="text-right">
+                            <Tooltip
+                              content={tooltipContent}
+                              position="top"
+                              variant="light"
+                              minWidth={250}
+                              maxWidth={350}
+                            >
+                              <span className="cursor-help">{formatCurrency(totalValue)}</span>
+                            </Tooltip>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                    <TableRow className="footer-row">
+                      <TableCell>
+                        Cumulative Equity (w/ Growth)
+                        <Tooltip
+                          content="The running total of all equity that has vested to date, with stock price growth factored in"
+                          position="right"
+                          variant="light"
+                          minWidth={250}
+                          maxWidth={350}
+                        >
+                          <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                        </Tooltip>
+                      </TableCell>
+                      {years.map(year => {
+                        // Calculate growth-adjusted vesting
+                        let cumulativeWithGrowth = 0;
+                        for (let i = 0; i <= year - 1; i++) {
+                          cumulativeWithGrowth += getGrowthAdjustedVestingForYear(i);
+                        }
+                        
+                        // Include growth-adjusted bonuses as equity if option is enabled
+                        const bonusWithGrowth = (includeBonuses && treatBonusesAsEquity) 
+                          ? getCumulativeGrowthAdjustedBonuses(year - 1) 
+                          : 0;
+                        
+                        // Calculate the base value for comparison
+                        const baseEquity = yearlyBreakdown[year - 1]?.cumulativeVested || 0;
+                        const baseBonus = (includeBonuses && treatBonusesAsEquity) 
+                          ? getCumulativeBonuses(year - 1) 
+                          : 0;
+                        const baseValue = baseEquity + baseBonus;
+                        
+                        // Calculate the total with growth
+                        const totalWithGrowth = cumulativeWithGrowth + bonusWithGrowth;
+                        const growthDiff = totalWithGrowth - baseValue;
+                        
+                        const tooltipContent = (
+                          <div className="tooltip-calculation">
+                            <div>Base Equity: {formatCurrency(baseEquity)}</div>
+                            {baseBonus > 0 && (
+                              <div>Base Bonus: {formatCurrency(baseBonus)}</div>
+                            )}
+                            <div>Growth Rate: {stockGrowthRate}%</div>
+                            {growthDiff > 0 && (
+                              <div>Growth Amount: +{formatCurrency(growthDiff)}</div>
+                            )}
+                            {bonusWithGrowth > 0 && (
+                              <div>Bonus with Growth: {formatCurrency(bonusWithGrowth)}</div>
+                            )}
+                            <div>Total Value: {formatCurrency(totalWithGrowth)}</div>
+                          </div>
+                        );
+                        
+                        return (
+                          <TableCell key={`cumulative-growth-${year}`} className="text-right">
+                            <Tooltip
+                              content={tooltipContent}
+                              position="top"
+                              variant="light"
+                              minWidth={250}
+                              maxWidth={350}
+                            >
+                              <span className="cursor-help">{formatCurrency(totalWithGrowth)}</span>
+                            </Tooltip>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  </>
+                )}
+                <TableRow className="footer-row-total">
+                  <TableCell>
+                    Total Per Year (Salary + Vesting{includeBonuses ? " + Bonus" : ""})
+                    <Tooltip
+                      content="The total compensation received each year, including salary, vesting equity, and bonuses (if enabled)"
+                      position="right"
+                      variant="light"
+                      minWidth={250}
+                      maxWidth={350}
+                    >
+                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                    </Tooltip>
+                  </TableCell>
+                  {years.map(year => {
+                    const yearIndex = year - 1;
+                    const totalForYear = getTotalPerYear(yearIndex);
+                    
+                    // Correctly calculate for tooltip without redeclaring variables
+                    const tooltipContent = (
+                      <div className="tooltip-calculation">
+                        {yearIndex < leavingYear && <div>Salary: {formatCurrency(yearIndex >= leavingYear ? 0 : baseSalary * Math.pow(1 + salaryGrowth / 100, yearIndex))}</div>}
+                        <div>Vesting: {formatCurrency(getGrowthAdjustedVestingForYear(yearIndex))}</div>
+                        {includeBonuses && yearIndex < leavingYear && (
+                          <div>Bonus: {formatCurrency(yearIndex >= leavingYear ? 0 : getGrowthAdjustedBonusForYear(yearIndex))}</div>
+                        )}
+                        <div>Total: {formatCurrency(totalForYear)}</div>
+                      </div>
+                    );
+                    
+                    return (
+                      <TableCell key={`total-with-salary-${year}`} className="text-right">
+                        <Tooltip
+                          content={tooltipContent}
+                          position="top"
+                          variant="light"
+                          minWidth={250}
+                          maxWidth={350}
+                        >
+                          <span className="cursor-help">{formatCurrency(totalForYear)}</span>
+                        </Tooltip>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+                <TableRow className="footer-row-highlight">
+                  <TableCell>
+                    Cumulative Total (Salary + Vesting{includeBonuses ? " + Bonus" : ""})
+                    <Tooltip
+                      content="The running total of all compensation received to date, including salary, vesting equity, and bonuses (if enabled)"
+                      position="right"
+                      variant="light"
+                      minWidth={250}
+                      maxWidth={350}
+                    >
+                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                    </Tooltip>
+                  </TableCell>
+                  {years.map(year => {
+                    const yearIndex = year - 1;
+                    const cumulativeTotal = getCumulativeTotal(yearIndex);
+                    
+                    // Calculate components for tooltip
+                    let cumulativeSalary = 0;
+                    let cumulativeVesting = 0;
+                    let cumulativeBonus = 0;
+                    
+                    for (let i = 0; i <= yearIndex; i++) {
+                      // Only include salary and bonuses up to leaving year
+                      if (i < leavingYear) {
+                        const salary = baseSalary * Math.pow(1 + salaryGrowth / 100, i);
+                        cumulativeSalary += salary;
+                        if (includeBonuses) {
+                          cumulativeBonus += getGrowthAdjustedBonusForYear(i);
+                        }
+                      }
+                      cumulativeVesting += getGrowthAdjustedVestingForYear(i);
+                    }
+                    
+                    const tooltipContent = (
+                      <div className="tooltip-calculation">
+                        <div>Cumulative Salary: {formatCurrency(cumulativeSalary)}</div>
+                        <div>Cumulative Vesting: {formatCurrency(cumulativeVesting)}</div>
+                        {includeBonuses && (
+                          <div>Cumulative Bonus: {formatCurrency(cumulativeBonus)}</div>
+                        )}
+                        <div>Total: {formatCurrency(cumulativeTotal)}</div>
+                      </div>
+                    );
+                    
+                    return (
+                      <TableCell key={`cumulative-total-${year}`} className="text-right">
+                        <Tooltip
+                          content={tooltipContent}
+                          position="top"
+                          variant="light"
+                          minWidth={250}
+                          maxWidth={350}
+                        >
+                          <span className="cursor-help">{formatCurrency(cumulativeTotal)}</span>
+                        </Tooltip>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default StockReviewCalculator;
