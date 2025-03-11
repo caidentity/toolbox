@@ -10,6 +10,9 @@ import Button from '@/components/ui/Button';
 import './StockReview.css';
 import Tooltip from '@/components/ui/Tooltip';
 import SummarySection from './SummarySection';
+import FilterCard from './FilterCard';
+import FormField from './FormField';
+import EditorSection from './EditorSection';
 
 // Define simplified grant types - only new hire and annual
 type GrantType = 'newHire' | 'annual';
@@ -70,6 +73,10 @@ const StockReviewCalculator: React.FC = () => {
   const [showCumulativeValue, setShowCumulativeValue] = useState<boolean>(true);
   const [showNewHireGrants, setShowNewHireGrants] = useState<boolean>(true);
   const [showAnnualGrants, setShowAnnualGrants] = useState<boolean>(true);
+  
+  // ESPP settings
+  const [includeESPP, setIncludeESPP] = useState<boolean>(false);
+  const [esppContribution, setEsppContribution] = useState<number>(30000); // Max $30K per year
   
   // Generate and update all grants when inputs change
   useEffect(() => {
@@ -274,7 +281,10 @@ const StockReviewCalculator: React.FC = () => {
     // Get bonus - only applies up to leaving year
     const bonusInYear = year >= leavingYear ? 0 : getGrowthAdjustedBonusForYear(year);
     
-    return salaryInYear + vestingInYear + bonusInYear;
+    // Get ESPP for the year
+    const esppInYear = getYearlyESPPValue(year);
+    
+    return salaryInYear + vestingInYear + bonusInYear + esppInYear;
   };
   
   // Calculate bonus for a specific year
@@ -296,29 +306,94 @@ const StockReviewCalculator: React.FC = () => {
     return basicBonus;
   };
   
-  // Calculate growth-adjusted bonus through the years
+  // Calculate growth-adjusted bonus for a specific year
   const getGrowthAdjustedBonusForYear = (year: number): number => {
-    if (!includeBonuses || !treatBonusesAsEquity) {
+    // If bonuses are disabled, not treated as equity, or after leaving year
+    if (!includeBonuses || !treatBonusesAsEquity || year >= leavingYear) {
       return getBonusForYear(year);
     }
     
-    let totalBonus = 0;
-    // Calculate all previous years' bonuses with compound growth
-    for (let i = 0; i < Math.min(year + 1, leavingYear); i++) {
-      // Get the bonus from previous years (already given)
-      const salaryInYear = baseSalary * Math.pow(1 + salaryGrowth / 100, i);
-      const yearlyBonus = salaryInYear * (bonusPercent / 100);
-      
-      // Apply compound growth for the years AFTER the bonus was given
-      // For a bonus from year i, it grows for (year - i - 1) years
-      // The -1 ensures growth starts from the next year after the bonus is given
-      const growthFactor = Math.pow(1 + stockGrowthRate / 100, year - i - 1);
-      totalBonus += yearlyBonus * growthFactor;
+    // Calculate the basic bonus for the current year (percentage of current salary)
+    const salaryInYear = baseSalary * Math.pow(1 + salaryGrowth / 100, year);
+    const currentYearBasicBonus = salaryInYear * (bonusPercent / 100);
+    
+    // For the first year (year 0), return just the basic bonus
+    if (year === 0) {
+      return currentYearBasicBonus;
     }
     
-    // No need to add current year's bonus separately - it's included in the loop above
+    // For subsequent years:
+    // Total = Current year's basic bonus + ONLY the growth amount from previous year's bonus
     
-    return totalBonus;
+    // Get previous year's total bonus value
+    const previousYearBonus = getGrowthAdjustedBonusForYear(year - 1);
+    
+    // Calculate ONLY the growth amount from the previous year's bonus
+    const growthFromPreviousBonus = previousYearBonus * (stockGrowthRate / 100);
+    
+    // Return the sum of the current year's basic bonus and ONLY the growth from previous year's bonus
+    return currentYearBasicBonus + growthFromPreviousBonus;
+  };
+  
+  // Calculate ESPP value for a specific year
+  const getESPPForYear = (year: number): number => {
+    // No ESPP after leaving year or if disabled
+    if (!includeESPP || year >= leavingYear) {
+      return 0;
+    }
+
+    // Base ESPP contribution with 15% discount
+    const baseContribution = Math.min(esppContribution, 30000); // Cap at $30K
+    const baseESPPValue = baseContribution * 1.15; // 15% instant addition
+    
+    // Calculate cumulative value with growth
+    let cumulativeValue = 0;
+    
+    // For each year of contribution up to the current year
+    for (let i = 0; i <= Math.min(year, leavingYear - 1); i++) {
+      // Each year adds a new contribution
+      // Apply growth based on how many years have passed since contribution
+      const growthYears = year - i;
+      const growthFactor = Math.pow(1 + stockGrowthRate / 100, growthYears);
+      
+      // Add this year's contribution with growth applied
+      cumulativeValue += baseESPPValue * growthFactor;
+    }
+    
+    return cumulativeValue;
+  };
+  
+  // Get ESPP value for a specific year (non-cumulative, just for this year)
+  const getYearlyESPPValue = (year: number): number => {
+    // No ESPP after leaving year or if disabled
+    if (!includeESPP || year >= leavingYear) {
+      return 0;
+    }
+    
+    // Base ESPP contribution with 15% discount for current year
+    const baseContribution = Math.min(esppContribution, 30000); // Cap at $30K
+    const baseESPPValue = baseContribution * 1.15; // 15% instant addition
+    
+    // First year is just the base value
+    if (year === 0) {
+      return baseESPPValue;
+    }
+    
+    // For subsequent years:
+    // 1. Current year's new contribution
+    // 2. Growth on all previous years' contributions
+    
+    // Current year's contribution
+    const currentYearContribution = baseESPPValue;
+    
+    // Get previous year's total value and calculate the growth amount
+    const previousYearValue = getESPPForYear(year - 1);
+    const growthOnPrevious = previousYearValue * (stockGrowthRate / 100);
+    
+    // For non-cumulative display, we only want to show:
+    // 1. This year's new contribution
+    // 2. The growth generated on previous contributions
+    return currentYearContribution + growthOnPrevious;
   };
   
   // Get cumulative bonuses up to a specific year
@@ -382,238 +457,208 @@ const StockReviewCalculator: React.FC = () => {
       <CardContent>
         <div className="space-y-6">
           {/* Filters Card */}
-          <Card className="border border-gray-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Global Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="stockGrowthRate">Stock Growth Rate (%)</Label>
-                  <Input
-                    id="stockGrowthRate"
-                    type="number"
-                    value={stockGrowthRate}
-                    onChange={(e) => setStockGrowthRate(Number(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="leavingYear">
-                    Leaving Year
-                    <Tooltip
-                      content="The last year you work at the company. You will receive salary and bonus in this year, but not beyond. Annual grants are only issued before this year. Existing grants continue vesting with stock growth after leaving."
-                      position="top"
-                      variant="light"
-                      minWidth={250}
-                      maxWidth={350}
-                    >
-                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                    </Tooltip>
-                  </Label>
-                  <Input
-                    id="leavingYear"
-                    type="number"
-                    min="1"
-                    max={projectionYears}
-                    value={leavingYear}
-                    onChange={(e) => {
-                      const value = Math.min(Number(e.target.value), projectionYears);
-                      setLeavingYear(value);
-                    }}
-                  />
-                </div>
-                <div className="checkbox-wrapper">
-                  <input
-                    type="checkbox"
-                    id="showVestingDetails"
-                    checked={showVestingDetails}
-                    onChange={(e) => setShowVestingDetails(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="showVestingDetails">Show Vesting Details</Label>
-                </div>
-                <div className="checkbox-wrapper">
-                  <input
-                    type="checkbox"
-                    id="showCumulativeValue"
-                    checked={showCumulativeValue}
-                    onChange={(e) => setShowCumulativeValue(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="showCumulativeValue">Show Cumulative Value</Label>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <FilterCard title="Global Settings">
+            <div className="grid grid-cols-1 gap-4">
+              <FormField
+                id="stockGrowthRate"
+                label="Stock Growth Rate (%)"
+                type="number"
+                value={stockGrowthRate}
+                onInputChange={(e) => setStockGrowthRate(Number(e.target.value))}
+                layout="horizontal"
+              />
+              
+              <FormField
+                id="leavingYear"
+                label="Leaving Year"
+                type="number"
+                value={leavingYear}
+                onInputChange={(e) => {
+                  const value = Number(e.target.value);
+                  const constrainedValue = Math.min(value, projectionYears);
+                  setLeavingYear(constrainedValue);
+                }}
+                min={1}
+                max={projectionYears}
+                tooltipContent="The last year you work at the company. You will receive salary and bonus in this year, but not beyond. Annual grants are only issued before this year. Existing grants continue vesting with stock growth after leaving."
+                layout="horizontal"
+              />
+              
+              <FormField
+                id="showVestingDetails"
+                label="Show Vesting Details"
+                type="checkbox"
+                value={showVestingDetails}
+                onInputChange={(e) => setShowVestingDetails(e.target.checked)}
+                layout="horizontal"
+              />
+              
+              <FormField
+                id="showCumulativeValue"
+                label="Show Cumulative Value"
+                type="checkbox"
+                value={showCumulativeValue}
+                onInputChange={(e) => setShowCumulativeValue(e.target.checked)}
+                layout="horizontal"
+              />
+            </div>
+          </FilterCard>
+          
           {/* Editor grid layout - all filters on one row */}
           <div className="grid-editor">
             {/* Salary section */}
-            <div className="editor-section">
-              <h3 className="editor-section-title">Salary Details</h3>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="baseSalary">Base Salary</Label>
-                  <Input
-                    id="baseSalary"
-                    type="number"
-                    value={baseSalary}
-                    onChange={(e) => setBaseSalary(Number(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="salaryGrowth">Annual Growth (%)</Label>
-                  <Input
-                    id="salaryGrowth"
-                    type="number"
-                    value={salaryGrowth}
-                    onChange={(e) => setSalaryGrowth(Number(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="projectionYears">Projection Years</Label>
-                  <Input
-                    id="projectionYears"
-                    type="number"
-                    value={projectionYears}
-                    onChange={(e) => setProjectionYears(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-            </div>
+            <EditorSection title="Salary Details">
+              <FormField
+                id="baseSalary"
+                label="Base Salary"
+                type="number"
+                value={baseSalary}
+                onInputChange={(e) => setBaseSalary(Number(e.target.value))}
+                layout="horizontal"
+              />
+              
+              <FormField
+                id="salaryGrowth"
+                label="Annual Growth (%)"
+                type="number"
+                value={salaryGrowth}
+                onInputChange={(e) => setSalaryGrowth(Number(e.target.value))}
+                layout="horizontal"
+              />
+              
+              <FormField
+                id="projectionYears"
+                label="Projection Years"
+                type="number"
+                value={projectionYears}
+                onInputChange={(e) => setProjectionYears(Number(e.target.value))}
+                layout="horizontal"
+              />
+            </EditorSection>
             
             {/* New Hire Grant section */}
-            <div className="editor-section">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="editor-section-title">New Hire Grant</h3>
-                <div className="checkbox-wrapper">
-                  <input
-                    type="checkbox"
-                    id="showNewHireGrants"
-                    checked={showNewHireGrants}
-                    onChange={(e) => setShowNewHireGrants(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="showNewHireGrants">Include</Label>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="newHireGrant">Grant Value</Label>
-                  <Input
-                    id="newHireGrant"
-                    type="number"
-                    value={newHireGrant.value}
-                    onChange={(e) => setNewHireGrant({...newHireGrant, value: Number(e.target.value)})}
-                    disabled={!showNewHireGrants}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vestingYears">Vesting Years</Label>
-                  <Input
-                    id="vestingYears"
-                    type="number"
-                    value={newHireGrant.vestingYears}
-                    onChange={(e) => setNewHireGrant({
-                      ...newHireGrant, 
-                      vestingYears: Number(e.target.value)
-                    })}
-                    disabled={!showNewHireGrants}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="startYear">Start Year (Displayed as Year {newHireGrant.startYear + 1})</Label>
-                  <Input
-                    id="startYear"
-                    type="number"
-                    value={newHireGrant.startYear}
-                    onChange={(e) => setNewHireGrant({
-                      ...newHireGrant, 
-                      startYear: Number(e.target.value)
-                    })}
-                    disabled={!showNewHireGrants}
-                  />
-                </div>
-              </div>
-            </div>
+            <EditorSection 
+              title="New Hire Grant" 
+              toggleable={true} 
+              enabled={showNewHireGrants} 
+              onToggleChange={(e) => setShowNewHireGrants(e.target.checked)}
+            >
+              <FormField
+                id="newHireGrant"
+                label="Grant Value"
+                type="number"
+                value={newHireGrant.value}
+                onInputChange={(e) => setNewHireGrant({...newHireGrant, value: Number(e.target.value)})}
+                disabled={!showNewHireGrants}
+                layout="horizontal"
+              />
+              
+              <FormField
+                id="vestingYears"
+                label="Vesting Years"
+                type="number"
+                value={newHireGrant.vestingYears}
+                onInputChange={(e) => setNewHireGrant({...newHireGrant, vestingYears: Number(e.target.value)})}
+                disabled={!showNewHireGrants}
+                layout="horizontal"
+              />
+              
+              <FormField
+                id="startYear"
+                label="Start Year (Displayed as Year {newHireGrant.startYear + 1})"
+                type="number"
+                value={newHireGrant.startYear}
+                onInputChange={(e) => setNewHireGrant({...newHireGrant, startYear: Number(e.target.value)})}
+                disabled={!showNewHireGrants}
+                layout="horizontal"
+              />
+            </EditorSection>
             
             {/* Annual Grants section */}
-            <div className="editor-section">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="editor-section-title">Annual Grants</h3>
-                <div className="checkbox-wrapper">
-                  <input
-                    type="checkbox"
-                    id="showAnnualGrants"
-                    checked={showAnnualGrants}
-                    onChange={(e) => setShowAnnualGrants(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="showAnnualGrants">Include</Label>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="yearlyGrantPercent">Percent of Salary</Label>
-                  <Input
-                    id="yearlyGrantPercent"
-                    type="number"
-                    value={yearlyGrantPercent}
-                    onChange={(e) => setYearlyGrantPercent(Number(e.target.value))}
-                    disabled={!showAnnualGrants}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="annualGrantVestingYears">Vesting Years</Label>
-                  <Input
-                    id="annualGrantVestingYears"
-                    type="number"
-                    value={annualGrantVestingYears}
-                    onChange={(e) => setAnnualGrantVestingYears(Number(e.target.value))}
-                    disabled={!showAnnualGrants}
-                  />
-                </div>
-              </div>
-            </div>
+            <EditorSection 
+              title="Annual Grants" 
+              toggleable={true} 
+              enabled={showAnnualGrants} 
+              onToggleChange={(e) => setShowAnnualGrants(e.target.checked)}
+            >
+              <FormField
+                id="yearlyGrantPercent"
+                label="Percent of Salary"
+                type="number"
+                value={yearlyGrantPercent}
+                onInputChange={(e) => setYearlyGrantPercent(Number(e.target.value))}
+                disabled={!showAnnualGrants}
+                layout="horizontal"
+              />
+              
+              <FormField
+                id="annualGrantVestingYears"
+                label="Vesting Years"
+                type="number"
+                value={annualGrantVestingYears}
+                onInputChange={(e) => setAnnualGrantVestingYears(Number(e.target.value))}
+                disabled={!showAnnualGrants}
+                layout="horizontal"
+              />
+            </EditorSection>
             
-            {/* Bonus section */}
-            <div className="editor-section">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="editor-section-title">Annual Bonus</h3>
-                <div className="checkbox-wrapper">
-                  <input
-                    type="checkbox"
-                    id="includeBonuses"
-                    checked={includeBonuses}
-                    onChange={(e) => setIncludeBonuses(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="includeBonuses">Include</Label>
-                </div>
+            {/* Bonus Options */}
+            <EditorSection 
+              title="Bonus Options" 
+              toggleable={true} 
+              enabled={includeBonuses} 
+              onToggleChange={(e) => setIncludeBonuses(e.target.checked)}
+            >
+              <FormField
+                id="bonusPercent"
+                label="Bonus Percent of Salary"
+                type="number"
+                value={bonusPercent}
+                onInputChange={(e) => setBonusPercent(Number(e.target.value))}
+                disabled={!includeBonuses}
+                layout="horizontal"
+              />
+              
+              <div className="flex items-center space-x-2 my-2">
+                <input
+                  type="checkbox"
+                  id="treatBonusAsEquity"
+                  checked={treatBonusesAsEquity}
+                  onChange={(e) => setTreatBonusesAsEquity(e.target.checked)}
+                  disabled={!includeBonuses}
+                  className="rounded border-gray-300"
+                />
+                <Label 
+                  htmlFor="treatBonusAsEquity"
+                  className={!includeBonuses ? "text-gray-400" : ""}
+                >
+                  Treat bonuses as equity (apply stock growth)
+                </Label>
               </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bonusPercent">Percent of Salary</Label>
-                  <Input
-                    id="bonusPercent"
-                    type="number"
-                    value={bonusPercent}
-                    onChange={(e) => setBonusPercent(Number(e.target.value))}
-                    disabled={!includeBonuses}
-                  />
-                </div>
-                <div className="checkbox-wrapper mt-4">
-                  <input
-                    type="checkbox"
-                    id="treatBonusesAsEquity"
-                    checked={treatBonusesAsEquity}
-                    onChange={(e) => setTreatBonusesAsEquity(e.target.checked)}
-                    disabled={!includeBonuses}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="treatBonusesAsEquity">Treat as Equity (Apply Stock Growth)</Label>
-                </div>
+            </EditorSection>
+            
+            {/* ESPP Options */}
+            <EditorSection 
+              title="ESPP Options" 
+              toggleable={true} 
+              enabled={includeESPP} 
+              onToggleChange={(e) => setIncludeESPP(e.target.checked)}
+            >
+              <FormField
+                id="esppContribution"
+                label="Annual Contribution ($)"
+                type="number"
+                value={esppContribution}
+                onInputChange={(e) => setEsppContribution(Math.min(Number(e.target.value), 30000))}
+                disabled={!includeESPP}
+                layout="horizontal"
+              />
+              
+              <div className="text-sm text-gray-500 mb-2">
+                <p>ESPP contributions are capped at $30,000 per year.</p>
+                <p>15% discount is automatically applied, and growth follows stock rate.</p>
               </div>
-            </div>
+            </EditorSection>
           </div>
           
           {/* Summary section */}
@@ -691,23 +736,27 @@ const StockReviewCalculator: React.FC = () => {
                       
                       if (treatBonusesAsEquity && year >= 1) {
                         const salaryInYear = baseSalary * Math.pow(1 + salaryGrowth / 100, yearIndex);
-                        const currentYearBonus = salaryInYear * (bonusPercent / 100);
+                        const currentYearBasicBonus = salaryInYear * (bonusPercent / 100);
                         const growthAdjustedValue = getGrowthAdjustedBonusForYear(yearIndex);
-                        // Calculate the growth only for the current year's bonus
-                        const previousYearsCumulativeBonus = yearIndex > 0 ? getCumulativeBonuses(yearIndex - 1) : 0;
-                        const growthAmount = growthAdjustedValue - (previousYearsCumulativeBonus + currentYearBonus);
+                        
+                        // Get previous year's bonus and calculate just the growth amount
+                        const previousYearBonus = yearIndex > 0 ? getGrowthAdjustedBonusForYear(yearIndex - 1) : 0;
+                        const growthFromPreviousBonus = previousYearBonus * (stockGrowthRate / 100);
                         
                         const tooltipContent = (
                           <div className="tooltip-calculation">
-                            <div>Base Bonus: {formatCurrency(currentYearBonus)}</div>
-                            <div>Growth Rate: {stockGrowthRate}%</div>
-                            {growthAmount > 0 && (
-                              <div>Growth Amount: +{formatCurrency(growthAmount)}</div>
+                            <div>Current Year Basic Bonus: {formatCurrency(currentYearBasicBonus)}</div>
+                            {yearIndex > 0 && (
+                              <>
+                                <div>Previous Year Bonus: {formatCurrency(previousYearBonus)}</div>
+                                <div>Growth Rate: {stockGrowthRate}%</div>
+                                <div>Growth from Previous Bonus: +{formatCurrency(growthFromPreviousBonus)}</div>
+                              </>
                             )}
-                            <div>Total Value: {formatCurrency(growthAdjustedValue)}</div>
+                            <div>Total Bonus: {formatCurrency(growthAdjustedValue)}</div>
                           </div>
                         );
-                        
+
                         return (
                           <TableCell key={`bonus-${year}`} className="text-right table-text-sm">
                             <Tooltip
@@ -726,6 +775,68 @@ const StockReviewCalculator: React.FC = () => {
                       return (
                         <TableCell key={`bonus-${year}`} className="text-right table-text-sm">
                           {formatCurrency(basicBonus)}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                )}
+                
+                {/* ESPP Row */}
+                {includeESPP && (
+                  <TableRow className="bg-gray-50">
+                    <TableCell className="font-medium">
+                      ESPP
+                      <div className="text-xs text-gray-500 mt-1">
+                        (${esppContribution.toLocaleString()} annual contribution with 15% discount)
+                      </div>
+                    </TableCell>
+                    {years.map(year => {
+                      const yearIndex = year - 1;
+                      
+                      // Don't show ESPP after leaving year
+                      if (yearIndex >= leavingYear) {
+                        return (
+                          <TableCell key={`espp-${year}`} className="text-right table-text-sm">
+                            —
+                          </TableCell>
+                        );
+                      }
+                      
+                      const baseContribution = Math.min(esppContribution, 30000);
+                      const baseESPPValue = baseContribution * 1.15; // 15% discount
+                      const yearlyESPPValue = getYearlyESPPValue(yearIndex);
+                      
+                      // Calculate growth from previous years for the tooltip
+                      const previousYearValue = yearIndex > 0 ? getESPPForYear(yearIndex - 1) : 0;
+                      const growthAmount = yearIndex > 0 ? previousYearValue * (stockGrowthRate / 100) : 0;
+                      
+                      const tooltipContent = (
+                        <div className="tooltip-calculation">
+                          <div>New Contribution: {formatCurrency(baseContribution)}</div>
+                          <div>With 15% Discount: {formatCurrency(baseESPPValue)}</div>
+                          {yearIndex > 0 && (
+                            <>
+                              <div>Previous ESPP Total: {formatCurrency(previousYearValue)}</div>
+                              <div>Growth Rate: {stockGrowthRate}%</div>
+                              <div>Growth Amount: +{formatCurrency(growthAmount)}</div>
+                            </>
+                          )}
+                          <div>This Year's Value: {formatCurrency(yearlyESPPValue)}</div>
+                          <div>Cumulative ESPP Value: {formatCurrency(getESPPForYear(yearIndex))}</div>
+                        </div>
+                      );
+                      
+                      return (
+                        <TableCell key={`espp-${year}`} className="text-right table-text-sm">
+                          <Tooltip
+                            content={tooltipContent}
+                            position="top"
+                            variant="light"
+                            minWidth={250}
+                            maxWidth={350}
+                          >
+                            <span className="cursor-help">{formatCurrency(yearlyESPPValue)}</span>
+                          </Tooltip>
                         </TableCell>
                       );
                     })}
@@ -1027,110 +1138,6 @@ const StockReviewCalculator: React.FC = () => {
                     </TableRow>
                   </>
                 )}
-                <TableRow className="footer-row-total">
-                  <TableCell>
-                    Total Per Year (Salary + Vesting{includeBonuses ? " + Bonus" : ""})
-                    <Tooltip
-                      content="The total compensation received each year, including salary, vesting equity, and bonuses (if enabled)"
-                      position="right"
-                      variant="light"
-                      minWidth={250}
-                      maxWidth={350}
-                    >
-                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                    </Tooltip>
-                  </TableCell>
-                  {years.map(year => {
-                    const yearIndex = year - 1;
-                    const totalForYear = getTotalPerYear(yearIndex);
-                    
-                    // Correctly calculate for tooltip without redeclaring variables
-                    const tooltipContent = (
-                      <div className="tooltip-calculation">
-                        {yearIndex < leavingYear && <div>Salary: {formatCurrency(yearIndex >= leavingYear ? 0 : baseSalary * Math.pow(1 + salaryGrowth / 100, yearIndex))}</div>}
-                        <div>Vesting: {formatCurrency(getGrowthAdjustedVestingForYear(yearIndex))}</div>
-                        {includeBonuses && yearIndex < leavingYear && (
-                          <div>Bonus: {formatCurrency(yearIndex >= leavingYear ? 0 : getGrowthAdjustedBonusForYear(yearIndex))}</div>
-                        )}
-                        <div>Total: {formatCurrency(totalForYear)}</div>
-                      </div>
-                    );
-                    
-                    return (
-                      <TableCell key={`total-with-salary-${year}`} className="text-right">
-                        <Tooltip
-                          content={tooltipContent}
-                          position="top"
-                          variant="light"
-                          minWidth={250}
-                          maxWidth={350}
-                        >
-                          <span className="cursor-help">{formatCurrency(totalForYear)}</span>
-                        </Tooltip>
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-                <TableRow className="footer-row-highlight">
-                  <TableCell>
-                    Cumulative Total (Salary + Vesting{includeBonuses ? " + Bonus" : ""})
-                    <Tooltip
-                      content="The running total of all compensation received to date, including salary, vesting equity, and bonuses (if enabled)"
-                      position="right"
-                      variant="light"
-                      minWidth={250}
-                      maxWidth={350}
-                    >
-                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                    </Tooltip>
-                  </TableCell>
-                  {years.map(year => {
-                    const yearIndex = year - 1;
-                    const cumulativeTotal = getCumulativeTotal(yearIndex);
-                    
-                    // Calculate components for tooltip
-                    let cumulativeSalary = 0;
-                    let cumulativeVesting = 0;
-                    let cumulativeBonus = 0;
-                    
-                    for (let i = 0; i <= yearIndex; i++) {
-                      // Only include salary and bonuses up to leaving year
-                      if (i < leavingYear) {
-                        const salary = baseSalary * Math.pow(1 + salaryGrowth / 100, i);
-                        cumulativeSalary += salary;
-                        if (includeBonuses) {
-                          cumulativeBonus += getGrowthAdjustedBonusForYear(i);
-                        }
-                      }
-                      cumulativeVesting += getGrowthAdjustedVestingForYear(i);
-                    }
-                    
-                    const tooltipContent = (
-                      <div className="tooltip-calculation">
-                        <div>Cumulative Salary: {formatCurrency(cumulativeSalary)}</div>
-                        <div>Cumulative Vesting: {formatCurrency(cumulativeVesting)}</div>
-                        {includeBonuses && (
-                          <div>Cumulative Bonus: {formatCurrency(cumulativeBonus)}</div>
-                        )}
-                        <div>Total: {formatCurrency(cumulativeTotal)}</div>
-                      </div>
-                    );
-                    
-                    return (
-                      <TableCell key={`cumulative-total-${year}`} className="text-right">
-                        <Tooltip
-                          content={tooltipContent}
-                          position="top"
-                          variant="light"
-                          minWidth={250}
-                          maxWidth={350}
-                        >
-                          <span className="cursor-help">{formatCurrency(cumulativeTotal)}</span>
-                        </Tooltip>
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
               </TableFooter>
             </Table>
           </div>
