@@ -56,7 +56,7 @@ const StockReviewCalculator: React.FC = () => {
     id: 'new-hire',
     type: 'newHire',
     name: 'New Hire Grant',
-    value: 180000, // $180k
+    value: 195000, // $195k
     vestingYears: 4,
     startYear: 0, // Starts vesting at year 0 (displayed as year 1)
   });
@@ -122,6 +122,8 @@ const StockReviewCalculator: React.FC = () => {
     }
     
     setAllGrants(grants);
+    
+    console.log(`Created ${grants.length} grants, stopping at leaving year ${leavingYear}`);
   }, [
     baseSalary, 
     salaryGrowth, 
@@ -175,6 +177,7 @@ const StockReviewCalculator: React.FC = () => {
       for (const grant of allGrants) {
         // If this year is in the vesting period for this grant
         const grantAge = year - grant.startYear;
+        // Only vest if the grant started before leaving year
         if (grantAge >= 0 && grantAge < grant.vestingYears && grant.startYear < leavingYear) {
           // Simple linear vesting (equal amounts per year)
           vestingAmount += grant.value / grant.vestingYears;
@@ -221,20 +224,15 @@ const StockReviewCalculator: React.FC = () => {
       return 0;
     }
     
+    // Calculate the grant age (how many years since the grant started)
     const grantAge = year - grant.startYear;
     
+    // Only vest if the grant is still in its vesting period (hasn't fully vested yet)
     if (grantAge >= 0 && grantAge < grant.vestingYears) {
       return grant.value / grant.vestingYears;
     }
     
     return 0;
-  };
-  
-  // Calculate the total vesting amount for a specific year (without growth)
-  const getTotalVestingForYear = (year: number): number => {
-    return allGrants
-      .filter(grant => grant.startYear < leavingYear) // Only consider grants before leaving year
-      .reduce((sum, grant) => sum + getVestingForGrantInYear(grant, year), 0);
   };
   
   // Calculate the growth-adjusted value for a grant in a specific year
@@ -244,6 +242,7 @@ const StockReviewCalculator: React.FC = () => {
       return 0;
     }
     
+    // Calculate the grant age (how many years since the grant started)
     const grantAge = year - grant.startYear;
     
     // If grant hasn't started yet or has fully vested
@@ -261,6 +260,13 @@ const StockReviewCalculator: React.FC = () => {
       // Apply compound growth based on the number of years since the grant started
       return baseVestingValue * Math.pow(1 + stockGrowthRate / 100, grantAge);
     }
+  };
+  
+  // Calculate the total vesting amount for a specific year (without growth)
+  const getTotalVestingForYear = (year: number): number => {
+    return allGrants
+      .filter(grant => grant.startYear < leavingYear) // Only consider grants before leaving year
+      .reduce((sum, grant) => sum + getVestingForGrantInYear(grant, year), 0);
   };
   
   // Get total growth-adjusted vesting for a specific year
@@ -281,10 +287,10 @@ const StockReviewCalculator: React.FC = () => {
     // Get bonus - only applies up to leaving year
     const bonusInYear = year >= leavingYear ? 0 : getGrowthAdjustedBonusForYear(year);
     
-    // Get ESPP for the year
-    const esppInYear = getYearlyESPPValue(year);
+    // Get ESPP equity portion for the year (just 15% discount + growth, not principal)
+    const esppEquityInYear = getESPPEquityPortionForYear(year);
     
-    return salaryInYear + vestingInYear + bonusInYear + esppInYear;
+    return salaryInYear + vestingInYear + bonusInYear + esppEquityInYear;
   };
   
   // Calculate bonus for a specific year
@@ -346,21 +352,26 @@ const StockReviewCalculator: React.FC = () => {
     const baseContribution = Math.min(esppContribution, 30000); // Cap at $30K
     const baseESPPValue = baseContribution * 1.15; // 15% instant addition
     
-    // Calculate cumulative value with growth
-    let cumulativeValue = 0;
-    
-    // For each year of contribution up to the current year
-    for (let i = 0; i <= Math.min(year, leavingYear - 1); i++) {
-      // Each year adds a new contribution
-      // Apply growth based on how many years have passed since contribution
-      const growthYears = year - i;
-      const growthFactor = Math.pow(1 + stockGrowthRate / 100, growthYears);
-      
-      // Add this year's contribution with growth applied
-      cumulativeValue += baseESPPValue * growthFactor;
+    // For year 0, just return the base value
+    if (year === 0) {
+      return baseESPPValue;
     }
     
-    return cumulativeValue;
+    // For all subsequent years, calculate the value with compound growth
+    // Each year gets $30K contribution (with 15% discount) + growth on previous balance
+    let totalValue = baseESPPValue; // First year's value
+    
+    for (let i = 1; i <= year; i++) {
+      // Apply growth to previous balance
+      totalValue = totalValue * (1 + stockGrowthRate / 100);
+      
+      // Add new contribution if we're still at the company
+      if (i < leavingYear) {
+        totalValue += baseESPPValue;
+      }
+    }
+    
+    return totalValue;
   };
   
   // Get ESPP value for a specific year (non-cumulative, just for this year)
@@ -370,30 +381,65 @@ const StockReviewCalculator: React.FC = () => {
       return 0;
     }
     
-    // Base ESPP contribution with 15% discount for current year
-    const baseContribution = Math.min(esppContribution, 30000); // Cap at $30K
-    const baseESPPValue = baseContribution * 1.15; // 15% instant addition
-    
-    // First year is just the base value
+    // If it's year 0, just return the base ESPP value
     if (year === 0) {
-      return baseESPPValue;
+      const baseContribution = Math.min(esppContribution, 30000);
+      return baseContribution * 1.15; // 15% instant addition
     }
     
-    // For subsequent years:
-    // 1. Current year's new contribution
-    // 2. Growth on all previous years' contributions
+    // Otherwise, calculate the difference between this year and previous year
+    const thisYearTotal = getESPPForYear(year);
+    const previousYearTotal = getESPPForYear(year - 1);
     
-    // Current year's contribution
-    const currentYearContribution = baseESPPValue;
+    // The yearly value is the new contribution plus growth on previous balance
+    return thisYearTotal - previousYearTotal;
+  };
+  
+  // Calculate just the equity portion of ESPP (15% discount + stock growth only)
+  // This excludes the initial contribution amount to focus only on the "equity-like" portion
+  const getESPPEquityPortionForYear = (year: number): number => {
+    // No ESPP after leaving year or if disabled
+    if (!includeESPP || year >= leavingYear) {
+      return 0;
+    }
     
-    // Get previous year's total value and calculate the growth amount
-    const previousYearValue = getESPPForYear(year - 1);
-    const growthOnPrevious = previousYearValue * (stockGrowthRate / 100);
+    // Base contribution amount
+    const baseContribution = Math.min(esppContribution, 30000);
     
-    // For non-cumulative display, we only want to show:
-    // 1. This year's new contribution
-    // 2. The growth generated on previous contributions
-    return currentYearContribution + growthOnPrevious;
+    // For year 0, only the 15% discount is counted as "equity"
+    if (year === 0) {
+      return baseContribution * 0.15; // Just the 15% discount portion
+    }
+    
+    // Get total ESPP value for current and previous year
+    const thisYearTotal = getESPPForYear(year);
+    const previousYearTotal = getESPPForYear(year - 1);
+    
+    // Calculate this year's equity portion:
+    // 1. Growth on previous total value
+    // 2. Plus the 15% discount on this year's new contribution (if still at company)
+    const growthOnPrevious = previousYearTotal * (stockGrowthRate / 100);
+    const discountPortion = year < leavingYear ? baseContribution * 0.15 : 0;
+    
+    return growthOnPrevious + discountPortion;
+  };
+  
+  // Get cumulative equity portion of ESPP up to a specific year
+  const getCumulativeESPPEquityPortion = (year: number): number => {
+    if (!includeESPP) {
+      return 0;
+    }
+    
+    // ESPP equity portion is the total ESPP value minus the base contributions
+    const totalESPPValue = getESPPForYear(year);
+    const baseContribution = Math.min(esppContribution, 30000);
+    
+    // Calculate how many years of contributions we've made
+    const contributionYears = Math.min(year + 1, leavingYear);
+    const totalContributions = baseContribution * contributionYears;
+    
+    // The equity portion is the difference
+    return Math.max(0, totalESPPValue - totalContributions);
   };
   
   // Get cumulative bonuses up to a specific year
@@ -445,6 +491,7 @@ const StockReviewCalculator: React.FC = () => {
   
   console.log('All grants:', allGrants);
   console.log('Filtered annual grants (should only show up to leaving year):', annualGrants);
+  console.log('Leaving year value:', leavingYear);
   
   return (
     <Card className="w-full">
@@ -678,6 +725,25 @@ const StockReviewCalculator: React.FC = () => {
             yearlyBreakdown={yearlyBreakdown}
           />
           
+          {/* Add a leaving year notice if it's not the end of projection */}
+          {leavingYear < projectionYears && (
+            <div className="bg-amber-50 p-4 rounded-md text-sm mb-4 border border-amber-200">
+              <h3 className="font-medium text-amber-800 mb-2">Leaving Year Notice</h3>
+              <p className="text-amber-700 mb-2">
+                You've set your leaving year to <strong>Year {leavingYear}</strong>. After this year:
+              </p>
+              <ul className="list-disc pl-5 text-amber-700 space-y-1">
+                <li>You will stop receiving salary and bonuses</li>
+                <li>No new annual grants will be issued</li>
+                <li>Existing grants (received before leaving) will continue to vest according to their original schedule</li>
+                <li>Vesting equity will continue to grow at the specified stock growth rate of {stockGrowthRate}%</li>
+              </ul>
+              <p className="text-amber-700 mt-2">
+                <strong>Blue values</strong> in the table represent continued vesting of grants received before leaving.
+              </p>
+            </div>
+          )}
+          
           {/* Restructured Results Table */}
           <div className="enhanced-table-container">
             <Table>
@@ -810,10 +876,16 @@ const StockReviewCalculator: React.FC = () => {
                       const previousYearValue = yearIndex > 0 ? getESPPForYear(yearIndex - 1) : 0;
                       const growthAmount = yearIndex > 0 ? previousYearValue * (stockGrowthRate / 100) : 0;
                       
+                      // Calculate the equity portion (15% discount + growth) 
+                      const equityPortion = getESPPEquityPortionForYear(yearIndex);
+                      const baseDiscount = baseContribution * 0.15; // Just the 15% discount
+                      
                       const tooltipContent = (
                         <div className="tooltip-calculation">
                           <div>New Contribution: {formatCurrency(baseContribution)}</div>
                           <div>With 15% Discount: {formatCurrency(baseESPPValue)}</div>
+                          <div className="font-semibold border-t border-gray-200 mt-1 pt-1">Equity Portion Only:</div>
+                          <div>15% Discount: {formatCurrency(baseDiscount)}</div>
                           {yearIndex > 0 && (
                             <>
                               <div>Previous ESPP Total: {formatCurrency(previousYearValue)}</div>
@@ -821,7 +893,8 @@ const StockReviewCalculator: React.FC = () => {
                               <div>Growth Amount: +{formatCurrency(growthAmount)}</div>
                             </>
                           )}
-                          <div>This Year's Value: {formatCurrency(yearlyESPPValue)}</div>
+                          <div className="font-semibold">Equity Portion: {formatCurrency(equityPortion)}</div>
+                          <div className="border-t border-gray-200 mt-1 pt-1">This Year's Total: {formatCurrency(yearlyESPPValue)}</div>
                           <div>Cumulative ESPP Value: {formatCurrency(getESPPForYear(yearIndex))}</div>
                         </div>
                       );
@@ -895,64 +968,124 @@ const StockReviewCalculator: React.FC = () => {
                 )}
                 
                 {/* Annual Grant Rows */}
-                {showAnnualGrants && annualGrants.map(grant => (
-                  <TableRow key={grant.id}>
-                    <TableCell className="font-medium">
-                      {grant.name}
-                      <div className="text-xs text-gray-500 mt-1">
-                        ({formatCurrency(grant.value)} over {grant.vestingYears} years)
-                      </div>
-                    </TableCell>
-                    {years.map(year => {
-                      const yearIndex = year - 1;
-                      // Skip computation for grants that start at or after leaving year
-                      if (grant.startYear >= leavingYear) {
-                        return (
-                          <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
-                            —
-                          </TableCell>
-                        );
-                      }
-                      
-                      const baseValue = getVestingForGrantInYear(grant, yearIndex);
-                      const growthAdjustedValue = getGrowthAdjustedValueForGrant(grant, yearIndex);
-                      const showGrowth = baseValue > 0 && growthAdjustedValue > baseValue;
-                      
-                      if (baseValue > 0) {
-                        const tooltipContent = (
-                          <div className="tooltip-calculation">
-                            <div>Base Vesting: {formatCurrency(baseValue)}</div>
-                            <div>Growth Rate: {stockGrowthRate}%</div>
-                            {showGrowth && (
-                              <div>Growth Amount: +{formatCurrency(growthAdjustedValue - baseValue)}</div>
-                            )}
-                            <div>Total Value: {formatCurrency(growthAdjustedValue)}</div>
+                {showAnnualGrants && (
+                  <>
+                    {annualGrants.map(grant => (
+                      <TableRow key={grant.id}>
+                        <TableCell className="font-medium">
+                          {grant.name}
+                          <div className="text-xs text-gray-500 mt-1">
+                            ({formatCurrency(grant.value)} over {grant.vestingYears} years)
                           </div>
-                        );
-                        
-                        return (
-                          <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
-                            <Tooltip
-                              content={tooltipContent}
-                              position="top"
-                              variant="light"
-                              minWidth={250}
-                              maxWidth={350}
-                            >
-                              <span className="cursor-help">{formatCurrency(growthAdjustedValue)}</span>
-                            </Tooltip>
-                          </TableCell>
-                        );
-                      }
-                      
-                      return (
-                        <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
-                          {formatCurrency(growthAdjustedValue)}
                         </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
+                        {years.map(year => {
+                          const yearIndex = year - 1;
+                          
+                          // For any year at or after leaving year, visually indicate this in the row header
+                          // or show that no grants are issued after leaving
+                          if (year === leavingYear) {
+                            return (
+                              <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm bg-yellow-50">
+                                {formatCurrency(getGrowthAdjustedValueForGrant(grant, yearIndex))}
+                                <div className="text-xs text-amber-600">(Leaving Year)</div>
+                              </TableCell>
+                            );
+                          }
+                          
+                          // Skip computation for grants that would start at or after leaving year
+                          // This shouldn't happen with our filters, but let's keep this check for safety
+                          if (grant.startYear >= leavingYear) {
+                            return (
+                              <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
+                                —
+                              </TableCell>
+                            );
+                          }
+                          
+                          const baseValue = getVestingForGrantInYear(grant, yearIndex);
+                          const growthAdjustedValue = getGrowthAdjustedValueForGrant(grant, yearIndex);
+                          const showGrowth = baseValue > 0 && growthAdjustedValue > baseValue;
+                          
+                          if (baseValue > 0) {
+                            const tooltipContent = (
+                              <div className="tooltip-calculation">
+                                <div>Base Vesting: {formatCurrency(baseValue)}</div>
+                                <div>Growth Rate: {stockGrowthRate}%</div>
+                                {showGrowth && (
+                                  <div>Growth Amount: +{formatCurrency(growthAdjustedValue - baseValue)}</div>
+                                )}
+                                <div>Total Value: {formatCurrency(growthAdjustedValue)}</div>
+                                {yearIndex >= leavingYear && (
+                                  <div className="text-blue-500 mt-1 border-t pt-1 border-gray-200">
+                                    This is continued vesting from a grant received in year {grant.startYear + 1}.
+                                    <br/>No new grants after leaving year {leavingYear}.
+                                  </div>
+                                )}
+                              </div>
+                            );
+                            
+                            return (
+                              <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
+                                <Tooltip
+                                  content={tooltipContent}
+                                  position="top"
+                                  variant="light"
+                                  minWidth={300}
+                                  maxWidth={400}
+                                >
+                                  <span className={`cursor-help ${yearIndex >= leavingYear ? "text-blue-500 font-medium" : ""}`}>
+                                    {formatCurrency(growthAdjustedValue)}
+                                    {yearIndex >= leavingYear && <span className="text-xs text-blue-500 ml-1">*</span>}
+                                  </span>
+                                </Tooltip>
+                              </TableCell>
+                            );
+                          }
+                          
+                          return (
+                            <TableCell key={`${grant.id}-${year}`} className="text-right table-text-sm">
+                              {formatCurrency(growthAdjustedValue)}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                    
+                    {/* Add info row about grants ending */}
+                    {leavingYear < projectionYears && (
+                      <TableRow>
+                        <TableCell className="font-medium text-amber-600">
+                          No New Annual Grants
+                          <div className="text-xs text-gray-500 mt-1">
+                            (after leaving in year {leavingYear})
+                          </div>
+                        </TableCell>
+                        {years.map(year => (
+                          <TableCell key={`no-grants-${year}`} className="text-center table-text-sm">
+                            {year > leavingYear ? "—" : ""}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    )}
+                    
+                    {/* Add explanation for continued vesting */}
+                    {leavingYear < projectionYears && (
+                      <TableRow>
+                        <TableCell className="font-medium text-blue-500">
+                          <span className="text-xs">*</span> Continued Vesting
+                          <div className="text-xs text-gray-500 mt-1">
+                            (blue values show continued vesting of grants received before leaving)
+                          </div>
+                        </TableCell>
+                        {years.map(year => (
+                          <TableCell key={`vesting-note-${year}`} className="text-center table-text-sm">
+                            {year > leavingYear ? <span className="text-xs text-blue-500">*vesting continues</span> : ""}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    )}
+                  </>
+                )}
               </TableBody>
               
               <TableFooter>
@@ -1041,7 +1174,16 @@ const StockReviewCalculator: React.FC = () => {
                         const bonusAsEquity = (includeBonuses && treatBonusesAsEquity) 
                           ? getCumulativeBonuses(year - 1) 
                           : 0;
-                        const totalValue = baseEquity + bonusAsEquity;
+                        
+                        // Include base ESPP discount only (15% without growth) if enabled
+                        const baseESPPDiscount = includeESPP
+                          ? Array.from({ length: Math.min(year, leavingYear) }, (_, i) => {
+                              const baseContribution = Math.min(esppContribution, 30000);
+                              return baseContribution * 0.15; // Just the 15% discount
+                            }).reduce((a, b) => a + b, 0)
+                          : 0;
+                        
+                        const totalValue = baseEquity + bonusAsEquity + baseESPPDiscount;
                         
                         const tooltipContent = (
                           <div className="tooltip-calculation">
@@ -1049,10 +1191,13 @@ const StockReviewCalculator: React.FC = () => {
                             {bonusAsEquity > 0 && (
                               <div>Bonus as Equity: {formatCurrency(bonusAsEquity)}</div>
                             )}
+                            {baseESPPDiscount > 0 && (
+                              <div>ESPP 15% Discount: {formatCurrency(baseESPPDiscount)}</div>
+                            )}
                             <div>Total Value: {formatCurrency(totalValue)}</div>
                           </div>
                         );
-                        
+
                         return (
                           <TableCell key={`cumulative-base-${year}`} className="text-right">
                             <Tooltip
@@ -1093,6 +1238,11 @@ const StockReviewCalculator: React.FC = () => {
                           ? getCumulativeGrowthAdjustedBonuses(year - 1) 
                           : 0;
                         
+                        // Include ESPP equity portion (15% discount + growth) if enabled
+                        const esppEquityPortion = includeESPP
+                          ? getCumulativeESPPEquityPortion(year - 1)
+                          : 0;
+                        
                         // Calculate the base value for comparison
                         const baseEquity = yearlyBreakdown[year - 1]?.cumulativeVested || 0;
                         const baseBonus = (includeBonuses && treatBonusesAsEquity) 
@@ -1101,7 +1251,7 @@ const StockReviewCalculator: React.FC = () => {
                         const baseValue = baseEquity + baseBonus;
                         
                         // Calculate the total with growth
-                        const totalWithGrowth = cumulativeWithGrowth + bonusWithGrowth;
+                        const totalWithGrowth = cumulativeWithGrowth + bonusWithGrowth + esppEquityPortion;
                         const growthDiff = totalWithGrowth - baseValue;
                         
                         const tooltipContent = (
@@ -1116,6 +1266,9 @@ const StockReviewCalculator: React.FC = () => {
                             )}
                             {bonusWithGrowth > 0 && (
                               <div>Bonus with Growth: {formatCurrency(bonusWithGrowth)}</div>
+                            )}
+                            {esppEquityPortion > 0 && (
+                              <div>ESPP Equity Portion: {formatCurrency(esppEquityPortion)}</div>
                             )}
                             <div>Total Value: {formatCurrency(totalWithGrowth)}</div>
                           </div>

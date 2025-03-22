@@ -7,10 +7,10 @@
 // Tooltip element
 .tooltip {
   position: absolute;
-  z-index: 9999;
+  z-index: 9999999999 !important; // Extremely high z-index to ensure visibility
   min-width: 180px;
   max-width: 350px;
-  padding: 8px 12px;
+  padding: 6px 10px; // Reduced padding to hug content better
   border-radius: 4px;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -18,6 +18,7 @@
   pointer-events: none;
   transition: opacity 0.2s, visibility 0.2s;
   word-break: break-word;
+  box-sizing: border-box;
   
   // Default styles
   background-color: rgba(0, 0, 0, 0.8);
@@ -26,6 +27,87 @@
   // Hidden by default
   opacity: 0;
   visibility: hidden;
+  
+  // Ensure text is properly contained
+  overflow: visible;
+  white-space: normal;
+  display: flex; // Use flexbox for better content fitting
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  
+  // Pseudo-element background that always matches content size
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: inherit;
+    border-radius: inherit;
+    z-index: -2;
+  }
+  
+  // Fix specific issues with top positioning - reduce margins
+  &.top {
+    margin-bottom: 4px; // Reduced from 8px
+    padding-bottom: 8px; // Reduced from 12px
+  }
+  
+  &.bottom {
+    padding-top: 8px; // Reduced from 12px
+  }
+  
+  &.left {
+    padding-right: 8px; // Reduced from 12px
+  }
+  
+  &.right {
+    padding-left: 8px; // Reduced from 12px
+  }
+  
+  // Content container for proper text wrapping
+  .contentWrapper {
+    position: relative;
+    width: 100%;
+    display: inline-block; // This helps with proper sizing
+    word-break: break-word;
+    word-wrap: break-word;
+    white-space: normal;
+    height: auto;
+    min-height: 100%;
+    line-height: 1.5;
+    z-index: 1; // Keep content above background
+  }
+}
+
+// When the tooltip is rendered in a portal, the positioning is handled by inline styles
+// The following position classes are used when not in a portal
+.top {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px); // Reduced distance (-8px to -4px)
+}
+
+.bottom {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px); // Reduced distance (8px to 4px)
+}
+
+.left {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px); // Reduced distance (-8px to -4px)
+}
+
+.right {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(4px); // Reduced distance (8px to 4px)
 }
 
 // Tooltip variants
@@ -67,51 +149,35 @@
   height: 8px;
   background: inherit;
   transform: rotate(45deg);
+  z-index: -1; // Ensure it stays behind the content
+  box-shadow: inherit;
 }
 
-// Positioning variants
-.top {
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-8px);
-  
-  .arrow {
-    bottom: -4px;
-    left: calc(50% - 4px);
-  }
+// Arrow positioning for each tooltip position
+// When in a portal, the positioning is fixed, so 
+// we use a different positioning strategy for the arrow
+.top .arrow {
+  bottom: -4px;
+  left: calc(50% - 4px);
+  box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.05);
 }
 
-.bottom {
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(8px);
-  
-  .arrow {
-    top: -4px;
-    left: calc(50% - 4px);
-  }
+.bottom .arrow {
+  top: -4px;
+  left: calc(50% - 4px);
+  box-shadow: -1px -1px 1px rgba(0, 0, 0, 0.05);
 }
 
-.left {
-  right: 100%;
-  top: 50%;
-  transform: translateY(-50%) translateX(-8px);
-  
-  .arrow {
-    right: -4px;
-    top: calc(50% - 4px);
-  }
+.left .arrow {
+  right: -4px;
+  top: calc(50% - 4px);
+  box-shadow: 1px -1px 1px rgba(0, 0, 0, 0.05);
 }
 
-.right {
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%) translateX(8px);
-  
-  .arrow {
-    left: -4px;
-    top: calc(50% - 4px);
-  }
+.right .arrow {
+  left: -4px;
+  top: calc(50% - 4px);
+  box-shadow: -1px 1px 1px rgba(0, 0, 0, 0.05);
 }
 
 // Visibility states
