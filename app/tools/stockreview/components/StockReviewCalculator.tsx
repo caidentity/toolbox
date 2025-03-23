@@ -768,7 +768,13 @@ const StockReviewCalculator: React.FC = () => {
                   htmlFor="treatBonusAsEquity"
                   className={!includeBonuses ? "text-gray-400" : ""}
                 >
-                  Treat bonuses as equity (apply stock growth)
+                  <Tooltip
+                    content="When enabled, bonuses are treated as equity that grows with the stock price"
+                    position="right"
+                    variant="light"
+                  >
+                    <span className="cursor-help">Treat bonuses as equity (apply stock growth)</span>
+                  </Tooltip>
                 </Label>
               </div>
             </EditorSection>
@@ -864,10 +870,7 @@ const StockReviewCalculator: React.FC = () => {
                       minWidth={250}
                       maxWidth={350}
                     >
-                      <span className="cursor-help flex items-center">
-                        Base Salary
-                        <span className="ml-1 text-blue-500 hover:text-blue-700 inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                      </span>
+                      <span className="cursor-help">Base Salary</span>
                     </Tooltip>
                   </TableCell>
                   {years.map(year => {
@@ -910,10 +913,7 @@ const StockReviewCalculator: React.FC = () => {
                         minWidth={250}
                         maxWidth={350}
                       >
-                        <span className="cursor-help flex items-center">
-                          Annual Bonus
-                          <span className="ml-1 text-blue-500 hover:text-blue-700 inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                        </span>
+                        <span className="cursor-help">Annual Bonus</span>
                       </Tooltip>
                     </TableCell>
                     {years.map(year => {
@@ -1002,10 +1002,7 @@ const StockReviewCalculator: React.FC = () => {
                         minWidth={320}
                         maxWidth={400}
                       >
-                        <span className="cursor-help flex items-center">
-                          ESPP
-                          <span className="ml-1 text-blue-500 hover:text-blue-700 inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                        </span>
+                        <span className="cursor-help">ESPP</span>
                       </Tooltip>
                     </TableCell>
                     {years.map(year => {
@@ -1092,10 +1089,7 @@ const StockReviewCalculator: React.FC = () => {
                         minWidth={320}
                         maxWidth={400}
                       >
-                        <span className="cursor-help flex items-center">
-                          New Hire Grant
-                          <span className="ml-1 text-blue-500 hover:text-blue-700 inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                        </span>
+                        <span className="cursor-help">New Hire Grant</span>
                       </Tooltip>
                     </TableCell>
                     {years.map(year => {
@@ -1169,10 +1163,7 @@ const StockReviewCalculator: React.FC = () => {
                             minWidth={320}
                             maxWidth={400}
                           >
-                            <span className="cursor-help flex items-center">
-                              {grant.name}
-                              <span className="ml-1 text-blue-500 hover:text-blue-700 inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
-                            </span>
+                            <span className="cursor-help">{grant.name}</span>
                           </Tooltip>
                         </TableCell>
                         {years.map(year => {
@@ -1261,10 +1252,7 @@ const StockReviewCalculator: React.FC = () => {
                             minWidth={320}
                             maxWidth={400}
                           >
-                            <span className="cursor-help flex items-center">
-                              No New Annual Grants
-                              <span className="ml-1 text-amber-500 hover:text-amber-700 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 hover:bg-amber-200 transition-colors">ⓘ</span>
-                            </span>
+                            <span className="cursor-help">No New Annual Grants</span>
                           </Tooltip>
                           <div className="text-xs text-gray-500 mt-1">
                             (after leaving in year {leavingYear})
@@ -1292,7 +1280,7 @@ const StockReviewCalculator: React.FC = () => {
                       minWidth={250}
                       maxWidth={350}
                     >
-                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                      <span className="ml-1 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
                     </Tooltip>
                   </TableCell>
                   {years.map(year => (
@@ -1311,7 +1299,7 @@ const StockReviewCalculator: React.FC = () => {
                       minWidth={250}
                       maxWidth={350}
                     >
-                      <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                      <span className="ml-1 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
                     </Tooltip>
                   </TableCell>
                   {years.map(year => {
@@ -1367,7 +1355,7 @@ const StockReviewCalculator: React.FC = () => {
                           minWidth={250}
                           maxWidth={350}
                         >
-                          <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                          <span className="ml-1 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
                         </Tooltip>
                       </TableCell>
                       {years.map(year => {
@@ -1426,7 +1414,7 @@ const StockReviewCalculator: React.FC = () => {
                           minWidth={250}
                           maxWidth={350}
                         >
-                          <span className="ml-1 text-blue-500 hover:text-blue-700 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
+                          <span className="ml-1 cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">ⓘ</span>
                         </Tooltip>
                       </TableCell>
                       {years.map(year => {
